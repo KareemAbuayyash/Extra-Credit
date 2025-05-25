@@ -1,16 +1,15 @@
-# Staging Environment - H2 Database
 spring:
   application:
-    name: payroll-staging
+    name: employee-payroll-system-staging
   
-  # H2 Database (Staging)
+  # Staging Database - H2 for Testing
   datasource:
-    url: jdbc:h2:mem:stagingdb
+    url: jdbc:h2:mem:stagingdb;DB_CLOSE_DELAY=-1
     driver-class-name: org.h2.Driver
-    username: sa
-    password: 
+    username: staging_user
+    password: staging_pass
   
-  # JPA Configuration for H2
+  # Staging JPA Configuration
   jpa:
     database-platform: org.hibernate.dialect.H2Dialect
     hibernate:
@@ -20,12 +19,12 @@ spring:
       hibernate:
         format_sql: false
 
-  # Email Configuration
+  # Staging Email Configuration
   mail:
     host: smtp.gmail.com
     port: 587
-    username: ${MAIL_USERNAME:rawang17@gmail.com}
-    password: ${MAIL_PASSWORD:fswc bscf gnyb iewm}
+    username: ${SMTP_USERNAME:rawang17@gmail.com}
+    password: ${SMTP_PASSWORD:fswc bscf gnyb iewm}
     properties:
       mail:
         smtp:
@@ -33,27 +32,27 @@ spring:
           starttls:
             enable: true
 
-# API Documentation (Enabled for testing)
+# API Documentation for Staging Tests
 springdoc:
   swagger-ui:
     enabled: true
-    path: /swagger-ui.html
+    path: /api-docs-ui
   api-docs:
-    path: /api-docs
+    path: /v3/api-docs
 
-# JWT Configuration (Medium expiration)
-security:
+# Staging JWT Configuration
+auth:
   jwt:
-    secret: ${JWT_SECRET:staging-jwt-secret-key-67890}
-    expiration: 3600000  # 1 hour
+    secret-key: ${JWT_SECRET:staging-jwt-secret-key-for-testing-67890}
+    token-expiration: 3600000  # 1 hour
 
-# Info logging
+# Staging Logging
 logging:
   level:
     com.example.payroll: INFO
     org.springframework.security: WARN
 
-# Limited management endpoints
+# Selected Actuator Endpoints
 management:
   endpoints:
     web:
