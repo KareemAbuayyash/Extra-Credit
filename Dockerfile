@@ -1,44 +1,40 @@
-# Multi-stage build for optimized image size
-FROM maven:3.9.8-eclipse-temurin-21 AS build
+# Build Stage - Maven with OpenJDK 21
+FROM maven:3.9.8-eclipse-temurin-21 AS builder
 
-# Set working directory
-WORKDIR /app
+# Application Build Directory
+WORKDIR /application
 
-# Copy pom.xml first to leverage Docker layer caching
+# Maven Dependencies Caching Layer
 COPY pom.xml .
-
-# Download dependencies (this layer will be cached if pom.xml doesn't change)
 RUN mvn dependency:go-offline -B
 
-# Copy source code
+# Source Code Copy and Build
 COPY src ./src
-
-# Build the application
 RUN mvn clean package -DskipTests
 
-# Runtime stage
+# Runtime Stage - Lightweight JRE
 FROM eclipse-temurin:21-jre-jammy
 
-# Set working directory
-WORKDIR /app
+# Application Runtime Directory
+WORKDIR /application
 
-# Create a non-root user for security
-RUN groupadd -r payroll && useradd -r -g payroll payroll
+# Security - Non-root User Creation
+RUN groupadd -r appuser && useradd -r -g appuser appuser
 
-# Copy the JAR from build stage
-COPY --from=build /app/target/payroll-*.jar app.jar
+# Application JAR Copy
+COPY --from=builder /application/target/payroll-*.jar application.jar
 
-# Change ownership to payroll user
-RUN chown payroll:payroll app.jar
+# File Ownership Configuration
+RUN chown appuser:appuser application.jar
 
-# Switch to non-root user
-USER payroll
+# Switch to Secure User Context
+USER appuser
 
-# Expose the port your app runs on
+# Container Port Exposure
 EXPOSE 8080
 
-# Set JVM options for containerized environment
-ENV JAVA_OPTS="-Xmx512m -Xms256m -Djava.security.egd=file:/dev/./urandom"
+# JVM Optimization for Containers
+ENV JVM_OPTS="-Xmx512m -Xms256m -Djava.security.egd=file:/dev/./urandom"
 
-# Run the application
-ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar app.jar"]
+# Application Startup Command
+ENTRYPOINT ["sh", "-c", "java $JVM_OPTS -jar application.jar"]
