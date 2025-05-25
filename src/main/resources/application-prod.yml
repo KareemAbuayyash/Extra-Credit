@@ -1,38 +1,37 @@
-# Production Environment - AWS RDS PostgreSQL
 spring:
   application:
-    name: payroll-prod
+    name: employee-payroll-system-prod
   
-  # AWS RDS PostgreSQL Database (Production)
+  # Production Database Configuration - AWS RDS
   datasource:
-    url: jdbc:postgresql://${DB_HOST}:5432/${DB_NAME:payroll_prod}
-    username: ${DB_USERNAME:payroll_user}
-    password: ${DB_PASSWORD}
+    url: jdbc:postgresql://${DATABASE_HOST}:5432/${DATABASE_NAME:employee_payroll_db}
+    username: ${DATABASE_USER:admin_user}
+    password: ${DATABASE_PASSWORD}
     driver-class-name: org.postgresql.Driver
     hikari:
-      maximum-pool-size: 10
-      minimum-idle: 2
-      connection-timeout: 30000
-      idle-timeout: 300000
+      maximum-pool-size: 15
+      minimum-idle: 3
+      connection-timeout: 20000
+      idle-timeout: 600000
   
-  # JPA Configuration for PostgreSQL
+  # Hibernate & JPA Settings
   jpa:
     database-platform: org.hibernate.dialect.PostgreSQLDialect
     hibernate:
-      ddl-auto: validate  # Don't modify schema in production
+      ddl-auto: validate  # Production safety - no schema changes
     show-sql: false
     properties:
       hibernate:
         format_sql: false
         jdbc:
-          batch_size: 25
+          batch_size: 20
 
-  # Email Configuration (From environment variables)
+  # SMTP Email Service Configuration
   mail:
-    host: ${MAIL_HOST:smtp.gmail.com}
-    port: ${MAIL_PORT:587}
-    username: ${MAIL_USERNAME}
-    password: ${MAIL_PASSWORD}
+    host: ${SMTP_HOST:smtp.gmail.com}
+    port: ${SMTP_PORT:587}
+    username: ${SMTP_USER}
+    password: ${SMTP_PASS}
     properties:
       mail:
         smtp:
@@ -40,29 +39,29 @@ spring:
           starttls:
             enable: true
 
-# API Documentation (Enabled)
+# OpenAPI Documentation Settings
 springdoc:
   swagger-ui:
     enabled: true
-    path: /swagger-ui.html
+    path: /api-docs-ui
   api-docs:
     enabled: true
-    path: /api-docs
+    path: /v3/api-docs
 
-# JWT Configuration (Short expiration for security)
-security:
+# Authentication & Security Configuration
+auth:
   jwt:
-    secret: ${JWT_SECRET}
-    expiration: 1800000  # 30 minutes
+    secret-key: ${JWT_SECRET_KEY}
+    token-expiration: 1800000  # 30 minutes for security
 
-# Minimal logging for production
+# Production Logging Configuration
 logging:
   level:
     com.example.payroll: WARN
     org.springframework.security: ERROR
     root: ERROR
 
-# Minimal management endpoints
+# Health Check & Monitoring
 management:
   endpoints:
     web:
@@ -72,9 +71,9 @@ management:
     health:
       show-details: never
 
-# Production server settings
+# Server Configuration
 server:
-  port: ${SERVER_PORT:8080}
+  port: ${APP_PORT:8080}
   compression:
     enabled: true
   error:
