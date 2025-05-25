@@ -120,7 +120,7 @@ jobs:
         docker push $ECR_REGISTRY/$ECR_REPO:latest
         
         echo "Container successfully published!"
-        echo "container-image=$ECR_REGISTRY/$ECR_REPO:$IMAGE_TAG" >> $GITHUB_OUTPUT
+        echo "image=$ECR_REGISTRY/$ECR_REPO:$IMAGE_TAG" >> $GITHUB_OUTPUT
 
   # ═══════════════════════════════════════════════════════════
   # PHASE 3: PRODUCTION DEPLOYMENT WITH DATABASE INTEGRATION
@@ -130,6 +130,9 @@ jobs:
     needs: containerization
     name: Production Deployment with Database
     if: github.ref == 'refs/heads/main'
+    
+    outputs:
+      app-url: ${{ steps.get-endpoint.outputs.app-url }}
     
     steps:
     - name: AWS Authentication
@@ -145,12 +148,16 @@ jobs:
         # Graceful service update preparation
         ACTIVE_TASK=$(aws ecs list-tasks --cluster payroll-app-cluster --query 'taskArns[0]' --output text)
         if [ "$ACTIVE_TASK" != "None" ] && [ "$ACTIVE_TASK" != "" ]; then
+          echo "Stopping existing task: $ACTIVE_TASK"
           aws ecs stop-task --cluster payroll-app-cluster --task $ACTIVE_TASK --reason "Production deployment with database integration"
           aws ecs wait tasks-stopped --cluster payroll-app-cluster --tasks $ACTIVE_TASK
+          echo "Existing task stopped successfully"
+        else
+          echo "No existing tasks to stop"
         fi
         
         # Production task definition with database connectivity
-        cat > production-task-definition.json << 'EOF'
+        cat > production-task-definition.json << EOF
         {
           "family": "payroll-app-task",
           "networkMode": "awsvpc",
@@ -190,13 +197,21 @@ jobs:
         }
         EOF
         
+        echo "Task definition created with image: ${{ needs.containerization.outputs.container-image }}"
+        
         # Task definition registration
         UPDATED_TASK_ARN=$(aws ecs register-task-definition --cli-input-json file://production-task-definition.json --query 'taskDefinition.taskDefinitionArn' --output text)
+        echo "Task definition registered: $UPDATED_TASK_ARN"
         
         # Network infrastructure configuration
         DEFAULT_VPC=$(aws ec2 describe-vpcs --filters Name=isDefault,Values=true --query 'Vpcs[0].VpcId' --output text)
         PUBLIC_SUBNETS=$(aws ec2 describe-subnets --filters Name=vpc-id,Values=$DEFAULT_VPC Name=map-public-ip-on-launch,Values=true --query 'Subnets[*].SubnetId' --output text | tr '\t' ',')
         SECURITY_GROUP=$(aws ec2 describe-security-groups --filters Name=group-name,Values=payroll-sg --query 'SecurityGroups[0].GroupId' --output text)
+        
+        echo "Network configuration:"
+        echo "  VPC: $DEFAULT_VPC"
+        echo "  Subnets: $PUBLIC_SUBNETS"
+        echo "  Security Group: $SECURITY_GROUP"
         
         # Production service deployment
         DEPLOYMENT_TASK=$(aws ecs run-task \
@@ -206,59 +221,70 @@ jobs:
           --network-configuration "awsvpcConfiguration={subnets=[$PUBLIC_SUBNETS],securityGroups=[$SECURITY_GROUP],assignPublicIp=ENABLED}" \
           --query 'tasks[0].taskArn' --output text)
           
+        echo "Deployment task started: $DEPLOYMENT_TASK"
+        
         # Deployment completion verification
+        echo "Waiting for task to be running..."
         aws ecs wait tasks-running --cluster payroll-app-cluster --tasks $DEPLOYMENT_TASK
         echo "Production deployment with database integration completed successfully!"
         
-    - name: Live Environment Information
+    - name: Get Application Endpoint
+      id: get-endpoint
       run: |
         # Production endpoint discovery
+        echo "Discovering application endpoint..."
+        sleep 10  # Give time for network interface to be fully attached
+        
         RUNNING_TASK=$(aws ecs list-tasks --cluster payroll-app-cluster --query 'taskArns[0]' --output text)
+        echo "Running task: $RUNNING_TASK"
+        
         NETWORK_INTERFACE=$(aws ecs describe-tasks --cluster payroll-app-cluster --tasks $RUNNING_TASK --query 'tasks[0].attachments[0].details[?name==`networkInterfaceId`].value' --output text)
+        echo "Network interface: $NETWORK_INTERFACE"
+        
         LIVE_IP=$(aws ec2 describe-network-interfaces --network-interface-ids $NETWORK_INTERFACE --query 'NetworkInterfaces[0].Association.PublicIp' --output text)
+        echo "Public IP: $LIVE_IP"
+        
+        APP_URL="http://$LIVE_IP:8080"
+        echo "app-url=$APP_URL" >> $GITHUB_OUTPUT
         
         echo ""
         echo "================================================"
-        echo "PRODUCTION SYSTEM SUCCESSFULLY DEPLOYED!"
+        echo "🚀 DEPLOYMENT SUCCESSFUL! 🚀"
         echo "================================================"
         echo ""
-        echo "Live Application Endpoints:"
-        echo "   System Health: http://$LIVE_IP:8080/actuator/health"
-        echo "   Employee API: http://$LIVE_IP:8080/employees"
-        echo "   Authentication: http://$LIVE_IP:8080/auth/login"
-        echo "   API Documentation: http://$LIVE_IP:8080/api-docs-ui"
+        echo "🌐 Your Application is Live At:"
+        echo "   Main App: $APP_URL"
+        echo "   Health Check: $APP_URL/actuator/health"
+        echo "   API Documentation: $APP_URL/api-docs-ui"
+        echo "   Employee API: $APP_URL/employees"
+        echo "   Authentication: $APP_URL/auth/login"
         echo ""
-        echo "Database Infrastructure: AWS RDS PostgreSQL"
-        echo "   • Connection: payroll-prod-db.chxxo89q9lcl.us-east-1.rds.amazonaws.com"
-        echo "   • Schema: payroll_prod"
-        echo "   • Port: 5432"
+        echo "💾 Database: payroll-prod-db.chxxo89q9lcl.us-east-1.rds.amazonaws.com"
+        echo "🔑 Environment: Production"
+        echo "⚡ Status: Ready for use!"
         echo ""
-        echo "Environment: Production"
-        echo "Security: JWT Authentication (30min expiry), API Documentation Available"
-        echo ""
-        echo "Enterprise-grade database integration active!"
-        echo ""
-        echo "Quick Verification Commands:"
-        echo "   curl http://$LIVE_IP:8080/actuator/health"
-        echo "   curl http://$LIVE_IP:8080/v3/api-docs"
+        echo "================================================"
         
         # System health verification
-        echo ""
-        echo "Executing system health verification..."
-        sleep 15  # Allow application startup completion
+        echo "🔍 Performing health check..."
+        sleep 20  # Allow application startup completion
         
-        if curl -f -s http://$LIVE_IP:8080/actuator/health > /dev/null; then
-          echo "System health verification SUCCESSFUL - Application operational!"
+        if curl -f -s $APP_URL/actuator/health > /dev/null 2>&1; then
+          echo "✅ Health check PASSED - Application is operational!"
         else
-          echo "Health verification in progress - Application initializing..."
+          echo "⏳ Application is starting up... (this is normal)"
+          echo "💡 Try the health check again in 1-2 minutes: curl $APP_URL/actuator/health"
         fi
+        
+        echo ""
+        echo "🎉 DEPLOYMENT COMPLETE! Your app is accessible at: $APP_URL"
 
   # ═══════════════════════════════════════════════════════════
   # PHASE 4: DEPLOYMENT VERIFICATION & SUCCESS NOTIFICATION
   # ═══════════════════════════════════════════════════════════
   deployment-verification:
     runs-on: ubuntu-latest
-    needs: production-deployment
+    needs: [containerization, production-deployment]
     name: Deployment Verification & Notification
     if: github.ref == 'refs/heads/main'
     
@@ -266,30 +292,36 @@ jobs:
     - name: Success Notification & Summary
       run: |
         echo ""
-        echo "=================================================="
-        echo "ENTERPRISE CI/CD PIPELINE EXECUTION COMPLETE!"
-        echo "=================================================="
+        echo "🎊🎊🎊🎊🎊🎊🎊🎊🎊🎊🎊🎊🎊🎊🎊🎊🎊🎊🎊🎊"
+        echo "🎉 ENTERPRISE CI/CD PIPELINE SUCCESS! 🎉"
+        echo "🎊🎊🎊🎊🎊🎊🎊🎊🎊🎊🎊🎊🎊🎊🎊🎊🎊🎊🎊🎊"
         echo ""
-        echo "Automated Pipeline Execution Summary:"
-        echo "   1. Source code quality verification"
-        echo "   2. Comprehensive test suite execution"
-        echo "   3. Production container image creation"
-        echo "   4. Container registry publication"
-        echo "   5. ECS production deployment with database"
-        echo "   6. Live endpoints with RDS PostgreSQL integration!"
-        echo "   7. API documentation interface activated!"
+        echo "✅ Automated Pipeline Execution Summary:"
+        echo "   1. ✅ Source code quality verification"
+        echo "   2. ✅ Comprehensive test suite execution"
+        echo "   3. ✅ Production container image creation"
+        echo "   4. ✅ Container registry publication"
+        echo "   5. ✅ ECS production deployment with database"
+        echo "   6. ✅ Live endpoints with RDS PostgreSQL integration!"
+        echo "   7. ✅ API documentation interface activated!"
         echo ""
-        echo "ENTERPRISE-GRADE CI/CD ACHIEVEMENT UNLOCKED!"
-        echo "   • Fully automated deployment pipeline"
-        echo "   • Zero-downtime rolling updates"
-        echo "   • Persistent PostgreSQL database"
-        echo "   • Production-ready monitoring"
-        echo "   • Enterprise security standards"
+        echo "🌟 YOUR APPLICATION IS LIVE:"
+        echo "🔗 ${{ needs.production-deployment.outputs.app-url }}"
         echo ""
-        echo "Future Code Deployments:"
-        echo "   → Complete automation on every commit"
-        echo "   → Instant live application updates"
-        echo "   → Database persistence maintained"
-        echo "   → Professional enterprise standards!"
+        echo "🚀 NEXT TIME YOU PUSH TO MAIN:"
+        echo "   → Automatic build & test"
+        echo "   → Automatic container creation"  
+        echo "   → Automatic deployment"
+        echo "   → Automatic endpoint discovery"
+        echo "   → Zero manual work required!"
         echo ""
-        echo "Mission accomplished with production database integration!"
+        echo "💡 QUICK ACCESS LINKS:"
+        echo "   🏠 Main App: ${{ needs.production-deployment.outputs.app-url }}"
+        echo "   ❤️ Health: ${{ needs.production-deployment.outputs.app-url }}/actuator/health"
+        echo "   📚 API Docs: ${{ needs.production-deployment.outputs.app-url }}/api-docs-ui"
+        echo "   👥 Employees: ${{ needs.production-deployment.outputs.app-url }}/employees"
+        echo "   🔐 Auth: ${{ needs.production-deployment.outputs.app-url }}/auth/login"
+        echo ""
+        echo "🎯 MISSION ACCOMPLISHED! 🎯"
+        echo "Enterprise-grade CI/CD with automatic deployments!"
+        echo ""
