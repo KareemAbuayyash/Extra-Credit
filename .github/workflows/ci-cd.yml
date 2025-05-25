@@ -167,7 +167,7 @@ jobs:
               "environment": [
                 {"name": "ENVIRONMENT_PROFILE", "value": "prod"},
                 {"name": "SPRING_JPA_HIBERNATE_DDL_AUTO", "value": "update"},
-                {"name": "DATABASE_HOST", "value": "payroll-prod-db.cluug9r0tmdt.us-east-1.rds.amazonaws.com"},
+                {"name": "DATABASE_HOST", "value": "payroll-prod-db.chxxo89q9lcl.us-east-1.rds.amazonaws.com"},
                 {"name": "DATABASE_NAME", "value": "payroll_prod"},
                 {"name": "DATABASE_USER", "value": "payroll_user"},
                 {"name": "DATABASE_PASSWORD", "value": "SecurePassword123!"},
