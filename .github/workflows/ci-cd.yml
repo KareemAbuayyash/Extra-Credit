@@ -157,8 +157,8 @@ jobs:
           "requiresCompatibilities": ["FARGATE"],
           "cpu": "256",
           "memory": "512",
-          "executionRoleArn": "arn:aws:iam::260781727963:role/LabRole",
-          "taskRoleArn": "arn:aws:iam::260781727963:role/LabRole",
+          "executionRoleArn": "arn:aws:iam::562437922263:role/LabRole",
+          "taskRoleArn": "arn:aws:iam::562437922263:role/LabRole",
           "containerDefinitions": [
             {
               "name": "payroll-app",
@@ -229,7 +229,7 @@ jobs:
         echo "   API Documentation: http://$LIVE_IP:8080/api-docs-ui"
         echo ""
         echo "Database Infrastructure: AWS RDS PostgreSQL"
-        echo "   • Connection: payroll-prod-db.cluug9r0tmdt.us-east-1.rds.amazonaws.com"
+        echo "   • Connection: payroll-prod-db.chxxo89q9lcl.us-east-1.rds.amazonaws.com"
         echo "   • Schema: payroll_prod"
         echo "   • Port: 5432"
         echo ""
