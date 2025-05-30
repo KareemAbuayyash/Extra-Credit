@@ -12,8 +12,8 @@ permissions:
 
 env:
   AWS_REGION: us-east-1
-  REPO_NAME: my-app
-  CLUSTER: app-cluster
+  REPO_NAME: payroll-app
+  CLUSTER: payroll-app-cluster
   SERVICE: app-service
   CONTAINER: web-app
 
@@ -97,7 +97,7 @@ jobs:
             "logConfiguration": {
               "logDriver": "awslogs",
               "options": {
-                "awslogs-group": "/ecs/my-app",
+                "awslogs-group": "/ecs/payroll-app",
                 "awslogs-region": "us-east-1",
                 "awslogs-stream-prefix": "ecs"
               }
@@ -113,7 +113,7 @@ jobs:
         SG=$(aws ec2 describe-security-groups --filters Name=group-name,Values=payroll-sg --query 'SecurityGroups[0].GroupId' --output text)
         
         aws ecs run-task \
-          --cluster app-cluster \
+          --cluster payroll-app-cluster \
           --task-definition $TASK_ARN \
           --launch-type FARGATE \
           --network-configuration "awsvpcConfiguration={subnets=[$SUBNETS],securityGroups=[$SG],assignPublicIp=ENABLED}"
