@@ -94,6 +94,16 @@ jobs:
               {"name": "SPRING_PROFILES_ACTIVE", "value": "dev"},
               {"name": "SERVER_PORT", "value": "8080"}
             ],
+            "healthCheck": {
+              "command": [
+                "CMD-SHELL",
+                "curl -f http://localhost:8080/actuator/health || exit 1"
+              ],
+              "interval": 30,
+              "timeout": 5,
+              "retries": 3,
+              "startPeriod": 60
+            },
             "logConfiguration": {
               "logDriver": "awslogs",
               "options": {
@@ -119,3 +129,26 @@ jobs:
           --network-configuration "awsvpcConfiguration={subnets=[$SUBNETS],securityGroups=[$SG],assignPublicIp=ENABLED}"
         
         echo "Deployment completed"
+        
+        # Wait for task to be running and get the URL
+        echo "Waiting for deployment..."
+        sleep 30
+        
+        TASKS=$(aws ecs list-tasks --cluster payroll-app-cluster --desired-status RUNNING --query 'taskArns' --output text)
+        if [ "$TASKS" != "" ]; then
+          LATEST_TASK=$(echo $TASKS | tr ' ' '\n' | tail -1)
+          TASK_ID=$(echo $LATEST_TASK | cut -d'/' -f3)
+          
+          # Get public IP
+          NETWORK_INTERFACE=$(aws ecs describe-tasks --cluster payroll-app-cluster --tasks $TASK_ID --query 'tasks[0].attachments[0].details[?name==`networkInterfaceId`].value' --output text)
+          if [ "$NETWORK_INTERFACE" != "" ]; then
+            PUBLIC_IP=$(aws ec2 describe-network-interfaces --network-interface-ids $NETWORK_INTERFACE --query 'NetworkInterfaces[0].Association.PublicIp' --output text)
+            if [ "$PUBLIC_IP" != "" ]; then
+              echo ""
+              echo "🚀 Deployment successful!"
+              echo "📱 App URL: http://$PUBLIC_IP:8080"
+              echo "❤️ Health: http://$PUBLIC_IP:8080/actuator/health"
+              echo "📚 API Docs: http://$PUBLIC_IP:8080/swagger-ui/index.html"
+            fi
+          fi
+        fi
