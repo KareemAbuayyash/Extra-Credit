@@ -1,5 +1,5 @@
 // src/main/java/com/example/payroll/config/SwaggerConfig.java
-package com.example.payroll.config;
+package com.example.payroll;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
