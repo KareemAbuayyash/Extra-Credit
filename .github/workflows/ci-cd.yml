@@ -171,7 +171,7 @@ jobs:
           "networkMode": "awsvpc",
           "requiresCompatibilities": ["FARGATE"],
           "cpu": "1024",
-          "memory": "2048",
+          "memory": "4096",
           "executionRoleArn": "arn:aws:iam::562437922263:role/LabRole",
           "taskRoleArn": "arn:aws:iam::562437922263:role/LabRole",
           "containerDefinitions": [
@@ -179,7 +179,7 @@ jobs:
               "name": "payroll-app",
               "image": "${{ needs.containerization.outputs.container-image }}",
               "portMappings": [{"containerPort": 8080, "protocol": "tcp"}],
-              "memory": 2048,
+              "memory": 4096,
               "environment": [
                 {"name": "SPRING_PROFILES_ACTIVE", "value": "dev"},
                 {"name": "JAVA_OPTS", "value": "-Xmx1024m -Xms512m -XX:+UseContainerSupport -XX:MaxRAMPercentage=50.0"},
