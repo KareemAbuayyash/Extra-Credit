@@ -1,9 +1,7 @@
-# src/main/resources/application-prod.yml
 spring:
-  application:
-    name: employee-payroll-system-prod
-  
-  # Production Database Configuration - AWS RDS
+  profiles: prod
+
+  # == PRODUCTION (RDS/Postgres) ==
   datasource:
     url: jdbc:postgresql://${DATABASE_HOST}:5432/${DATABASE_NAME:employee_payroll_db}
     username: ${DATABASE_USER:admin_user}
@@ -14,12 +12,11 @@ spring:
       minimum-idle: 3
       connection-timeout: 20000
       idle-timeout: 600000
-  
-  # Hibernate & JPA Settings
+
   jpa:
     database-platform: org.hibernate.dialect.PostgreSQLDialect
     hibernate:
-      ddl-auto: update  # Changed from validate to update for production flexibility
+      ddl-auto: update
     show-sql: false
     properties:
       hibernate:
@@ -27,48 +24,16 @@ spring:
         jdbc:
           batch_size: 20
 
-  # SMTP Email Service Configuration
   mail:
-    host: ${SMTP_HOST:smtp.gmail.com}
-    port: ${SMTP_PORT:587}
     username: ${SMTP_USER}
     password: ${SMTP_PASS}
-    properties:
-      mail:
-        smtp:
-          auth: true
-          starttls:
-            enable: true
 
-# OpenAPI Documentation Settings - ENABLED FOR PRODUCTION
-springdoc:
-  swagger-ui:
-    enabled: true
-    path: /api-docs-ui
-    try-it-out-enabled: true
-    operations-sorter: method
-    tags-sorter: alpha
-    filter: true
-    config-url: /v3/api-docs/swagger-config
-    url: /v3/api-docs
-  api-docs:
-    enabled: true
-    path: /v3/api-docs
-
-# Authentication & Security Configuration
-auth:
-  jwt:
-    secret-key: ${JWT_SECRET_KEY}
-    token-expiration: 1800000  # 30 minutes for security
-
-# Production Logging Configuration
 logging:
   level:
     com.example.payroll: INFO
     org.springframework.security: WARN
     root: WARN
 
-# Health Check & Monitoring - More endpoints for production monitoring
 management:
   endpoints:
     web:
@@ -78,11 +43,7 @@ management:
     health:
       show-details: when-authorized
 
-# Server Configuration
 server:
   port: ${APP_PORT:8080}
   compression:
     enabled: true
-  error:
-    include-stacktrace: never
-  forward-headers-strategy: framework
