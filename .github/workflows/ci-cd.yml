@@ -1,4 +1,4 @@
-name: CI/CD Pipeline
+name: Application Build and Deploy
 
 on:
   push:
@@ -6,63 +6,148 @@ on:
   pull_request:
     branches: [ main ]
 
+permissions:
+  contents: read
+  checks: write
+
+env:
+  AWS_REGION: us-east-1
+  ECR_REPO: app-service
+  ECS_CLUSTER_NAME: app-cluster
+  ECS_SERVICE_NAME: app-service
+  APP_CONTAINER_NAME: app
+
 jobs:
-  build-and-deploy:
+  test:
     runs-on: ubuntu-latest
-    env:
-      AWS_REGION: us-east-1
-      AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
-      ECR_REPO: payroll-app
-      CLUSTER: payroll-app-cluster
-      SERVICE: payroll-app-service
-
     steps:
-      # 1) Get the code
-      - uses: actions/checkout@v4
+    - uses: actions/checkout@v4
+      
+    - name: Setup Java
+      uses: actions/setup-java@v4
+      with:
+        java-version: '21'
+        distribution: 'temurin'
+        
+    - name: Cache dependencies
+      uses: actions/cache@v4
+      with:
+        path: ~/.m2
+        key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
+        
+    - name: Run tests
+      run: mvn clean test -B
+        
+    - name: Build application
+      run: mvn clean package -DskipTests -B
 
-      # 2) JDK 21 for Maven
-      - name: Set up JDK 21
-        uses: actions/setup-java@v4
-        with:
-          java-version: '21'
-          distribution: temurin
+  build:
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.ref == 'refs/heads/main'
+    outputs:
+      image: ${{ steps.build.outputs.image }}
+    steps:
+    - uses: actions/checkout@v4
+      
+    - name: Setup Java
+      uses: actions/setup-java@v4
+      with:
+        java-version: '21'
+        distribution: 'temurin'
+        
+    - name: Build
+      run: mvn clean package -DskipTests -B
+      
+    - name: Configure AWS
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
+        aws-region: ${{ env.AWS_REGION }}
+        
+    - name: Login to ECR
+      id: ecr
+      uses: aws-actions/amazon-ecr-login@v2
+      
+    - name: Build and push
+      id: build
+      env:
+        REGISTRY: ${{ steps.ecr.outputs.registry }}
+        TAG: ${{ github.sha }}
+      run: |
+        docker build -t $REGISTRY/$ECR_REPO:$TAG .
+        docker push $REGISTRY/$ECR_REPO:$TAG
+        echo "image=$REGISTRY/$ECR_REPO:$TAG" >> $GITHUB_OUTPUT
 
-      # 3) Cache your ~/.m2
-      - name: Cache Maven packages
-        uses: actions/cache@v4
-        with:
-          path: ~/.m2
-          key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
-
-      # 4) Run tests & build JAR
-      - name: Build & Test
-        run: mvn clean package -B
-
-      # 5) AWS creds for ECR/ECS
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-region: ${{ env.AWS_REGION }}
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-
-      # 6) Log in to ECR
-      - uses: aws-actions/amazon-ecr-login@v2
-
-      # 7) Build & push both $SHA and “latest”
-      - name: Build & Push Docker image
-        run: |
-          IMAGE_URI=${{ env.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPO }}
-          TAG=${{ github.sha }}
-          docker build -t $IMAGE_URI:$TAG .
-          docker push $IMAGE_URI:$TAG
-          docker tag $IMAGE_URI:$TAG $IMAGE_URI:latest
-          docker push $IMAGE_URI:latest
-
-      # 8) Trigger ECS service to pick up the new image
-      - name: Deploy to ECS
-        run: |
-          aws ecs update-service \
-            --cluster ${{ env.CLUSTER }} \
-            --service ${{ env.SERVICE }} \
-            --force-new-deployment
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.ref == 'refs/heads/main'
+    steps:
+    - name: Configure AWS
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
+        aws-region: us-east-1
+        
+    - name: Deploy to ECS
+      run: |
+        # Stop existing tasks
+        TASKS=$(aws ecs list-tasks --cluster $ECS_CLUSTER_NAME --query 'taskArns' --output text)
+        if [ "$TASKS" != "" ]; then
+          for task in $TASKS; do
+            TASK_ID=$(echo $task | cut -d'/' -f3)
+            aws ecs stop-task --cluster $ECS_CLUSTER_NAME --task $TASK_ID
+          done
+          sleep 20
+        fi
+        
+        # Create task definition
+        cat > task-def.json << EOF
+        {
+          "family": "$ECS_SERVICE_NAME",
+          "networkMode": "awsvpc",
+          "requiresCompatibilities": ["FARGATE"],
+          "cpu": "512",
+          "memory": "1024",
+          "executionRoleArn": "arn:aws:iam::562437922263:role/LabRole",
+          "taskRoleArn": "arn:aws:iam::562437922263:role/LabRole",
+          "containerDefinitions": [
+            {
+              "name": "$APP_CONTAINER_NAME",
+              "image": "${{ needs.build.outputs.image }}",
+              "portMappings": [{"containerPort": 8080}],
+              "memory": 1024,
+              "environment": [
+                {"name": "SPRING_PROFILES_ACTIVE", "value": "dev"},
+                {"name": "JAVA_OPTS", "value": "-Xmx512m"}
+              ],
+              "logConfiguration": {
+                "logDriver": "awslogs",
+                "options": {
+                  "awslogs-group": "/ecs/app",
+                  "awslogs-region": "us-east-1",
+                  "awslogs-stream-prefix": "ecs"
+                }
+              }
+            }
+          ]
+        }
+        EOF
+        
+        # Register and run task
+        TASK_ARN=$(aws ecs register-task-definition --cli-input-json file://task-def.json --query 'taskDefinition.taskDefinitionArn' --output text)
+        
+        VPC=$(aws ec2 describe-vpcs --filters Name=isDefault,Values=true --query 'Vpcs[0].VpcId' --output text)
+        SUBNETS=$(aws ec2 describe-subnets --filters Name=vpc-id,Values=$VPC --query 'Subnets[*].SubnetId' --output text | tr '\t' ',')
+        SG=$(aws ec2 describe-security-groups --filters Name=group-name,Values=default --query 'SecurityGroups[0].GroupId' --output text)
+        
+        aws ecs run-task \
+          --cluster $ECS_CLUSTER_NAME \
+          --task-definition $TASK_ARN \
+          --launch-type FARGATE \
+          --network-configuration "awsvpcConfiguration={subnets=[$SUBNETS],securityGroups=[$SG],assignPublicIp=ENABLED}"
