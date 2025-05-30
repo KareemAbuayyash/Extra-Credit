@@ -46,10 +46,10 @@ class EmployeeController {
     return employeeService.findByEmail(email);
   }
 
-  @PutMapping("/employees/{id}")
-  ResponseEntity<?> replaceEmployee(@RequestBody EmployeeDTO newEmployee, @PathVariable Long id) {
-    return ResponseEntity.ok(employeeService.save(newEmployee, id));    
-  }
+  // @PutMapping("/employees/{id}")
+  // ResponseEntity<?> replaceEmployee(@RequestBody EmployeeDTO newEmployee, @PathVariable Long id) {
+  //   return ResponseEntity.ok(employeeService.save(newEmployee, id));    
+  // }
 
   @DeleteMapping("/employees/{id}")
   ResponseEntity<?> deleteEmployee(@PathVariable Long id) {
