@@ -127,7 +127,7 @@ jobs:
             "portMappings": [{"containerPort": 8080}],
             "memory": 4096,
             "environment": [
-              {"name": "SPRING_PROFILES_ACTIVE", "value": "dev"},
+              {"name": "SPRING_PROFILES_ACTIVE", "value": "prod"},
               {"name": "JAVA_OPTS", "value": "-Xmx2g -Xms1g"},
               {"name": "SERVER_PORT", "value": "8080"}
             ],
