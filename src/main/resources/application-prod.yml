@@ -2,9 +2,10 @@
 spring:
   application:
     name: employee-payroll-system-prod
-
-  # ── Production Database Configuration ───────────────────────────────────────
-  datasource:
+  
+  # Production Database Configuration - AWS RDS
+datasource:
+    # Notice the "?sslmode=require" after the port/database
     url: jdbc:postgresql://${DATABASE_HOST}:5432/${DATABASE_NAME:payroll_prod}?sslmode=require
     username: ${DATABASE_USER:payroll_user}
     password: SecurePassword123!
@@ -14,12 +15,12 @@ spring:
       minimum-idle: 3
       connection-timeout: 20000
       idle-timeout: 600000
-
-  # ── Hibernate & JPA Settings ────────────────────────────────────────────────
+  
+  # Hibernate & JPA Settings
   jpa:
     database-platform: org.hibernate.dialect.PostgreSQLDialect
     hibernate:
-      ddl-auto: update       # Changed from validate → update
+      ddl-auto: update  # Changed from validate to update for production flexibility
     show-sql: false
     properties:
       hibernate:
@@ -27,7 +28,7 @@ spring:
         jdbc:
           batch_size: 20
 
-  # ── SMTP Email Service Configuration ───────────────────────────────────────
+  # SMTP Email Service Configuration
   mail:
     host: ${SMTP_HOST:smtp.gmail.com}
     port: ${SMTP_PORT:587}
@@ -40,7 +41,7 @@ spring:
           starttls:
             enable: true
 
-# ── OpenAPI / Swagger ────────────────────────────────────────────────────────
+# OpenAPI Documentation Settings - ENABLED FOR PRODUCTION
 springdoc:
   swagger-ui:
     enabled: true
@@ -55,20 +56,20 @@ springdoc:
     enabled: true
     path: /v3/api-docs
 
-# ── Authentication & Security ─────────────────────────────────────────────────
+# Authentication & Security Configuration
 auth:
   jwt:
     secret-key: ${JWT_SECRET_KEY}
-    token-expiration: 1800000
+    token-expiration: 1800000  # 30 minutes for security
 
-# ── Logging ──────────────────────────────────────────────────────────────────
+# Production Logging Configuration
 logging:
   level:
     com.example.payroll: INFO
     org.springframework.security: WARN
     root: WARN
 
-# ── Health & Monitoring ──────────────────────────────────────────────────────
+# Health Check & Monitoring - More endpoints for production monitoring
 management:
   endpoints:
     web:
@@ -78,7 +79,7 @@ management:
     health:
       show-details: when-authorized
 
-# ── Server Configuration ────────────────────────────────────────────────────
+# Server Configuration
 server:
   port: ${APP_PORT:8080}
   compression:
