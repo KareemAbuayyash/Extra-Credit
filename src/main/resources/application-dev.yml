@@ -3,52 +3,34 @@ spring:
   application:
     name: employee-payroll-system-dev
 
-  # ────────────────────────────────────────────────────────────────
-  # 1) IN-MEMORY H2 FOR DEVELOPMENT
-  # ────────────────────────────────────────────────────────────────
+  # Development Database - Postgres (instead of H2)
   datasource:
-    # Use an in-memory H2 that survives for the life of the JVM
-    url: jdbc:h2:mem:devdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
-    driver-class-name: org.h2.Driver
-    username: sa
-    password:
-
-    # (Optional) Hikari can remain, but defaults are fine for H2. 
+    url: jdbc:postgresql://payroll-prod-db.chxxo89q9lcl.us-east-1.rds.amazonaws.com:5432/payroll_prod
+    driver-class-name: org.postgresql.Driver
+    username: payroll_user
+    password: SecurePassword123!
     hikari:
       maximum-pool-size: 5
       minimum-idle: 1
       connection-timeout: 20000
       idle-timeout: 300000
 
-  # ────────────────────────────────────────────────────────────────
-  # 2) JPA / HIBERNATE SETTINGS FOR H2
-  # ────────────────────────────────────────────────────────────────
+  # Development JPA Settings for Postgres
   jpa:
-    # Let Hibernate pick the H2 dialect automatically. You can omit this property, but it’s explicit here:
-    database-platform: org.hibernate.dialect.H2Dialect
-
-    # Create‐drop: tables will be created on startup, dropped when the
-    # app shuts down (perfect for development freshness).
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
     hibernate:
-      ddl-auto: create-drop
+      ddl-auto: update     # Allow schema changes in dev
     show-sql: true
-
     properties:
       hibernate:
         format_sql: true
 
-  # ────────────────────────────────────────────────────────────────
-  # 3) H2 CONSOLE (WEB UI) – ONLY IN DEV
-  # ────────────────────────────────────────────────────────────────
+  # (Remove H2 console, since H2 is gone)
   h2:
     console:
-      enabled: true
-      # The path at which the console is exposed (e.g. http://localhost:8080/database-console)
-      path: /database-console
+      enabled: false
 
-  # ────────────────────────────────────────────────────────────────
-  # 4) MAIL (UNCHANGED)
-  # ────────────────────────────────────────────────────────────────
+  # Development Email Configuration
   mail:
     host: smtp.gmail.com
     port: 587
@@ -61,9 +43,7 @@ spring:
           starttls:
             enable: true
 
-  # ────────────────────────────────────────────────────────────────
-  # 5) SWAGGER / OPENAPI FOR DEV
-  # ────────────────────────────────────────────────────────────────
+# API Documentation for Development
 springdoc:
   swagger-ui:
     enabled: true
@@ -71,27 +51,21 @@ springdoc:
   api-docs:
     path: /v3/api-docs
 
-  # ────────────────────────────────────────────────────────────────
-  # 6) JWT (DEV SECRET + LONG EXPIRATION)
-  # ────────────────────────────────────────────────────────────────
+# Development JWT Settings
 auth:
   jwt:
     secret-key: development-jwt-secret-key-for-testing-12345
-    token-expiration: 36000000  # 10 hours
+    token-expiration: 36000000  # 10 hours (for convenience)
 
-  # ────────────────────────────────────────────────────────────────
-  # 7) LOGGING – VERBOSE IN DEV
-  # ────────────────────────────────────────────────────────────────
+# Development Logging - Verbose
 logging:
   level:
     com.example.payroll: DEBUG
     org.springframework.security: DEBUG
 
-  # ────────────────────────────────────────────────────────────────
-  # 8) ACTUATOR – EXPOSE EVERYTHING IN DEV
-  # ────────────────────────────────────────────────────────────────
+# Enable all Actuator endpoints in Development
 management:
   endpoints:
     web:
       exposure:
-        include: "*"   # show health, info, metrics, env, etc.
+        include: "*"   # show all endpoints in dev
