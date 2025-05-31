@@ -1,4 +1,4 @@
-name: Bulletproof CI/CD Pipeline - No Crashes
+name: Spring Boot CI/CD Pipeline
 
 on:
   push:
@@ -18,82 +18,82 @@ env:
   APP_CONTAINER_NAME: payroll-app
 
 jobs:
-  # ═══════════════════════════════════════════════════════════
-  # PHASE 1: CODE QUALITY & TESTING PIPELINE
-  # ═══════════════════════════════════════════════════════════
-  quality-assurance:
+  # ════════════════════════════════════════════════════════
+  # BUILD & TEST
+  # ════════════════════════════════════════════════════════
+  build-and-test:
     runs-on: ubuntu-latest
-    name: Quality Assurance & Testing Suite
+    name: Build & Test Suite
     
     steps:
-    - name: Source Code Retrieval
+    - name: Checkout Code
       uses: actions/checkout@v4
       
-    - name: Java 21 Environment Setup
+    - name: Setup Java 21
       uses: actions/setup-java@v4
       with:
         java-version: '21'
         distribution: 'temurin'
         
-    - name: Maven Dependency Caching
+    - name: Cache Maven Dependencies
       uses: actions/cache@v4
       with:
         path: ~/.m2
         key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
         restore-keys: ${{ runner.os }}-m2
         
-    - name: Execute Test Suite
+    - name: Run Tests
       run: |
-        echo "Executing comprehensive test suite..."
+        echo "Running comprehensive test suite..."
         mvn clean test -B
         
-    - name: Test Results Publication
+    - name: Publish Test Results
       uses: dorny/test-reporter@v1
       if: success() || failure()
       with:
-        name: Test Execution Report
+        name: Test Results
         path: target/surefire-reports/*.xml
         reporter: java-junit
         token: ${{ secrets.GITHUB_TOKEN }}
         
-    - name: Application Compilation
+    - name: Build Application
       run: |
-        echo "Compiling production-ready application..."
+        echo "Building production artifact..."
         mvn clean package -DskipTests -B
 
-  # ═══════════════════════════════════════════════════════════
-  # PHASE 2: CONTAINERIZATION & REGISTRY MANAGEMENT
-  # ═══════════════════════════════════════════════════════════
-  containerization:
+  # ════════════════════════════════════════════════════════
+  # DOCKER BUILD & PUSH
+  # ════════════════════════════════════════════════════════
+  build-image:
     runs-on: ubuntu-latest
-    needs: quality-assurance
-    name: Container Build & Registry Push
+    needs: build-and-test
+    name: Build & Push Container
     if: github.ref == 'refs/heads/main'
     
     outputs:
-      container-image: ${{ steps.image-build.outputs.image }}
+      image: ${{ steps.build.outputs.image }}
     
     steps:
-    - name: Source Code Retrieval
+    - name: Checkout Code
       uses: actions/checkout@v4
       
-    - name: Java 21 Environment Setup
+    - name: Setup Java 21
       uses: actions/setup-java@v4
       with:
         java-version: '21'
         distribution: 'temurin'
         
-    - name: Maven Dependency Caching
+    - name: Cache Maven Dependencies
       uses: actions/cache@v4
       with:
         path: ~/.m2
         key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
         restore-keys: ${{ runner.os }}-m2
         
-    - name: Production Build
+    - name: Build JAR
       run: mvn clean package -DskipTests -B
       
-    - name: AWS Authentication
+    - name: Configure AWS Credentials
       uses: aws-actions/configure-aws-credentials@v4
       with:
         aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -101,41 +101,41 @@ jobs:
         aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
         aws-region: ${{ env.AWS_REGION }}
         
-    - name: ECR Registry Authentication
+    - name: Login to ECR
       id: ecr-login
       uses: aws-actions/amazon-ecr-login@v2
       
-    - name: Container Build & Registry Push
-      id: image-build
+    - name: Build & Push Container
+      id: build
       env:
         ECR_REGISTRY: ${{ steps.ecr-login.outputs.registry }}
         IMAGE_TAG: ${{ github.sha }}
       run: |
-        echo "Creating optimized container image..."
+        echo "Building container image..."
         docker build -t $ECR_REGISTRY/$ECR_REPO:$IMAGE_TAG .
         docker build -t $ECR_REGISTRY/$ECR_REPO:latest .
         
-        echo "Publishing to container registry..."
+        echo "Pushing to registry..."
         docker push $ECR_REGISTRY/$ECR_REPO:$IMAGE_TAG
         docker push $ECR_REGISTRY/$ECR_REPO:latest
         
-        echo "Container successfully published!"
         echo "image=$ECR_REGISTRY/$ECR_REPO:$IMAGE_TAG" >> $GITHUB_OUTPUT
+        echo "Container published successfully"
 
-  # ═══════════════════════════════════════════════════════════
-  # PHASE 3: BULLETPROOF DEPLOYMENT - NO CRASHES!
-  # ═══════════════════════════════════════════════════════════
-  bulletproof-deployment:
+  # ════════════════════════════════════════════════════════
+  # PRODUCTION DEPLOYMENT
+  # ════════════════════════════════════════════════════════
+  deploy:
     runs-on: ubuntu-latest
-    needs: containerization
-    name: Bulletproof No-Crash Deployment
+    needs: build-image
+    name: Production Deployment
     if: github.ref == 'refs/heads/main'
     
     outputs:
-      app-url: ${{ steps.get-endpoint.outputs.app-url }}
+      app-url: ${{ steps.endpoint.outputs.app-url }}
     
     steps:
-    - name: AWS Authentication
+    - name: Configure AWS Credentials
       uses: aws-actions/configure-aws-credentials@v4
       with:
         aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -143,29 +143,23 @@ jobs:
         aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
         aws-region: us-east-1
         
-    - name: Bulletproof Deployment with No-Crash Configuration
+    - name: Deploy to ECS
       run: |
-        echo "🛡️ BULLETPROOF DEPLOYMENT STARTING..."
-        echo "🔧 Using crash-proof configuration with optimal memory allocation"
+        echo "Starting deployment process..."
         
-        # Graceful service update preparation
+        # Gracefully stop existing tasks
         ACTIVE_TASKS=$(aws ecs list-tasks --cluster payroll-app-cluster --query 'taskArns' --output text)
         if [ "$ACTIVE_TASKS" != "" ]; then
-          echo "🔄 Gracefully stopping existing tasks..."
+          echo "Stopping existing tasks..."
           for task in $ACTIVE_TASKS; do
             TASK_ID=$(echo $task | cut -d'/' -f3)
-            echo "Stopping task: $TASK_ID"
-            aws ecs stop-task --cluster payroll-app-cluster --task $TASK_ID --reason "Bulletproof deployment upgrade"
+            aws ecs stop-task --cluster payroll-app-cluster --task $TASK_ID --reason "New deployment"
           done
-          
-          echo "⏳ Waiting for all tasks to stop..."
           sleep 30
-        else
-          echo "✅ No existing tasks to stop"
         fi
         
-        # BULLETPROOF task definition - NO CRASHES GUARANTEED!
-        cat > bulletproof-task-definition.json << 'EOF'
+        # Create optimized task definition
+        cat > task-definition.json << 'EOF'
         {
           "family": "payroll-app-task",
           "networkMode": "awsvpc",
@@ -177,7 +171,7 @@ jobs:
           "containerDefinitions": [
             {
               "name": "payroll-app",
-              "image": "${{ needs.containerization.outputs.container-image }}",
+              "image": "${{ needs.build-image.outputs.image }}",
               "portMappings": [{"containerPort": 8080, "protocol": "tcp"}],
               "memory": 4096,
               "environment": [
@@ -209,206 +203,144 @@ jobs:
         }
         EOF
         
-        echo "🛡️ BULLETPROOF CONFIGURATION:"
-        echo "   💾 Memory: 2048MB (2GB) - NO MEMORY CRASHES!"
-        echo "   🖥️ CPU: 1024 (1 vCPU) - STABLE PERFORMANCE!"
-        echo "   ☕ Java Heap: 1024MB (50% of container) - OPTIMAL!"
-        echo "   🏥 Health Checks: Enabled - SELF-HEALING!"
-        echo "   🔄 Profile: Development - NO DATABASE ISSUES!"
+        echo "Deploying with configuration:"
+        echo "- Memory: 2GB"
+        echo "- CPU: 1 vCPU"
+        echo "- Java Heap: 1GB"
+        echo "- Health checks enabled"
         
-        # Task definition registration
-        BULLETPROOF_TASK_ARN=$(aws ecs register-task-definition --cli-input-json file://bulletproof-task-definition.json --query 'taskDefinition.taskDefinitionArn' --output text)
-        echo "✅ Bulletproof task definition registered: $BULLETPROOF_TASK_ARN"
+        # Register task definition
+        TASK_ARN=$(aws ecs register-task-definition --cli-input-json file://task-definition.json --query 'taskDefinition.taskDefinitionArn' --output text)
+        echo "Task definition registered: $TASK_ARN"
         
-        # Network infrastructure configuration
+        # Get network configuration
         DEFAULT_VPC=$(aws ec2 describe-vpcs --filters Name=isDefault,Values=true --query 'Vpcs[0].VpcId' --output text)
         PUBLIC_SUBNETS=$(aws ec2 describe-subnets --filters Name=vpc-id,Values=$DEFAULT_VPC Name=map-public-ip-on-launch,Values=true --query 'Subnets[*].SubnetId' --output text | tr '\t' ',')
         SECURITY_GROUP=$(aws ec2 describe-security-groups --filters Name=group-name,Values=payroll-sg --query 'SecurityGroups[0].GroupId' --output text)
         
-        echo "🌐 Network configuration verified:"
-        echo "   VPC: $DEFAULT_VPC"
-        echo "   Subnets: $PUBLIC_SUBNETS"
-        echo "   Security Group: $SECURITY_GROUP"
-        
-        # BULLETPROOF deployment
-        echo "🚀 Deploying bulletproof application..."
-        BULLETPROOF_TASK=$(aws ecs run-task \
+        # Launch task
+        echo "Launching application..."
+        TASK=$(aws ecs run-task \
           --cluster payroll-app-cluster \
-          --task-definition $BULLETPROOF_TASK_ARN \
+          --task-definition $TASK_ARN \
           --launch-type FARGATE \
           --network-configuration "awsvpcConfiguration={subnets=[$PUBLIC_SUBNETS],securityGroups=[$SECURITY_GROUP],assignPublicIp=ENABLED}" \
           --query 'tasks[0].taskArn' --output text)
           
-        echo "✅ Bulletproof task launched: $BULLETPROOF_TASK"
+        echo "Task launched: $TASK"
         
-        # Enhanced deployment verification with retries
-        echo "⏳ Waiting for bulletproof deployment to be stable..."
-        TASK_ID=$(echo $BULLETPROOF_TASK | cut -d'/' -f3)
+        # Wait for deployment
+        TASK_ID=$(echo $TASK | cut -d'/' -f3)
         
-        # Wait with progress updates
         for i in {1..20}; do
-          CURRENT_STATUS=$(aws ecs describe-tasks --cluster payroll-app-cluster --tasks $TASK_ID --query 'tasks[0].lastStatus' --output text)
-          echo "⏳ Deployment progress ($i/20): Status = $CURRENT_STATUS"
+          STATUS=$(aws ecs describe-tasks --cluster payroll-app-cluster --tasks $TASK_ID --query 'tasks[0].lastStatus' --output text)
+          echo "Deployment status ($i/20): $STATUS"
           
-          if [ "$CURRENT_STATUS" = "RUNNING" ]; then
-            echo "✅ BULLETPROOF DEPLOYMENT SUCCESSFUL!"
+          if [ "$STATUS" = "RUNNING" ]; then
+            echo "Deployment successful!"
             break
-          elif [ "$CURRENT_STATUS" = "STOPPED" ]; then
-            echo "❌ Task stopped unexpectedly, checking reason..."
+          elif [ "$STATUS" = "STOPPED" ]; then
+            echo "Deployment failed - task stopped"
             aws ecs describe-tasks --cluster payroll-app-cluster --tasks $TASK_ID --query 'tasks[0].[stoppedReason,containers[0].exitCode,containers[0].reason]' --output table
             exit 1
           fi
           
           sleep 15
         done
-        
-        echo "🎉 BULLETPROOF DEPLOYMENT COMPLETED SUCCESSFULLY!"
 
-    - name: Get Application Endpoint with Enhanced Discovery
-      id: get-endpoint
+    - name: Get Application URL
+      id: endpoint
       run: |
-        echo "🔍 Discovering application endpoint with enhanced method..."
+        echo "Discovering application endpoint..."
         
-        # Enhanced endpoint discovery with retries
         for attempt in {1..5}; do
-          echo "🔍 Endpoint discovery attempt $attempt/5..."
+          echo "Discovery attempt $attempt/5..."
           
-          # Get current running tasks
           RUNNING_TASKS=$(aws ecs list-tasks --cluster payroll-app-cluster --desired-status RUNNING --query 'taskArns' --output text)
           
           if [ "$RUNNING_TASKS" != "" ]; then
-            # Get the first running task
             CURRENT_TASK=$(echo $RUNNING_TASKS | cut -d' ' -f1)
             TASK_ID=$(echo $CURRENT_TASK | cut -d'/' -f3)
-            echo "✅ Found running task: $TASK_ID"
             
-            # Get network interface with error handling
             NETWORK_INTERFACE=$(aws ecs describe-tasks --cluster payroll-app-cluster --tasks $TASK_ID --query 'tasks[0].attachments[0].details[?name==`networkInterfaceId`].value' --output text 2>/dev/null)
             
             if [ "$NETWORK_INTERFACE" != "" ] && [ "$NETWORK_INTERFACE" != "None" ]; then
-              echo "✅ Network interface found: $NETWORK_INTERFACE" 
+              PUBLIC_IP=$(aws ec2 describe-network-interfaces --network-interface-ids $NETWORK_INTERFACE --query 'NetworkInterfaces[0].Association.PublicIp' --output text 2>/dev/null)
               
-              # Get public IP with error handling
-              LIVE_IP=$(aws ec2 describe-network-interfaces --network-interface-ids $NETWORK_INTERFACE --query 'NetworkInterfaces[0].Association.PublicIp' --output text 2>/dev/null)
-              
-              if [ "$LIVE_IP" != "" ] && [ "$LIVE_IP" != "None" ]; then
-                echo "✅ Public IP discovered: $LIVE_IP"
+              if [ "$PUBLIC_IP" != "" ] && [ "$PUBLIC_IP" != "None" ]; then
+                echo "Application IP discovered: $PUBLIC_IP"
                 break
               fi
             fi
           fi
           
-          echo "⏳ Waiting 10 seconds before retry..."
           sleep 10
         done
         
-        if [ "$LIVE_IP" = "" ] || [ "$LIVE_IP" = "None" ]; then
-          echo "❌ Failed to discover IP after 5 attempts"
+        if [ "$PUBLIC_IP" = "" ] || [ "$PUBLIC_IP" = "None" ]; then
+          echo "Failed to discover IP after 5 attempts"
           exit 1
         fi
         
-        APP_URL="http://$LIVE_IP:8080"
+        APP_URL="http://$PUBLIC_IP:8080"
         echo "app-url=$APP_URL" >> $GITHUB_OUTPUT
         
         echo ""
-        echo "🎊🎊🎊🎊🎊🎊🎊🎊🎊🎊🎊🎊🎊🎊🎊🎊🎊🎊🎊🎊"
-        echo "🎉 BULLETPROOF DEPLOYMENT SUCCESS! 🎉"
-        echo "🎊🎊🎊🎊🎊🎊🎊🎊🎊🎊🎊🎊🎊🎊🎊🎊🎊🎊🎊🎊"
+        echo "🎉 DEPLOYMENT COMPLETE!"
         echo ""
-        echo "🌟 YOUR CRASH-PROOF APPLICATION IS LIVE:"
-        echo "   🏠 Main Application: $APP_URL"
-        echo "   ❤️ Health Check: $APP_URL/actuator/health"
-        echo "   📚 Swagger UI: $APP_URL/api-docs-ui"
-        echo "   📋 Alt Swagger: $APP_URL/swagger-ui/index.html"
-        echo "   👥 Employee API: $APP_URL/employees"
-        echo "   🔐 Authentication: $APP_URL/auth/login"
-        echo ""
-        echo "🛡️ BULLETPROOF SPECIFICATIONS:"
-        echo "   💾 Memory: 2048MB (2GB) - Zero memory crashes!"
-        echo "   🖥️ CPU: 1024 units (1 vCPU) - Smooth performance!"
-        echo "   ☕ Java Heap: 1024MB - Optimal allocation!"
-        echo "   🏥 Health Monitoring: Active - Self-healing!"
-        echo "   🔄 Profile: Development - No database complexity!"
-        echo ""
-        echo "🎯 NO MORE CRASHES GUARANTEED! 🎯"
+        echo "Application URLs:"
+        echo "  Main App: $APP_URL"
+        echo "  Health Check: $APP_URL/actuator/health"
+        echo "  Swagger UI: $APP_URL/api-docs-ui"
+        echo "  API Docs: $APP_URL/swagger-ui/index.html"
+        echo "  Employees API: $APP_URL/employees"
+        echo "  Auth Login: $APP_URL/auth/login"
         echo ""
         
-        # Enhanced health verification with retries
-        echo "🔍 Performing comprehensive health verification..."
+        # Health verification
+        echo "Verifying application health..."
         
-        for health_check in {1..10}; do
-          echo "🏥 Health check attempt $health_check/10..."
+        for check in {1..10}; do
+          echo "Health check $check/10..."
           
           if curl -f -s --connect-timeout 5 --max-time 10 $APP_URL/actuator/health > /dev/null 2>&1; then
-            echo "✅ HEALTH CHECK PASSED! Application is fully operational!"
-            
-            # Get health details
+            echo "✅ Health check passed!"
             HEALTH_STATUS=$(curl -s $APP_URL/actuator/health 2>/dev/null)
-            echo "🏥 Health Status: $HEALTH_STATUS"
+            echo "Health Status: $HEALTH_STATUS"
             break
           else
-            echo "⏳ Application still starting up (attempt $health_check/10)..."
-            if [ $health_check -eq 10 ]; then
-              echo "⚠️ Health check timeout - app may still be initializing"
-              echo "💡 Try manual check: curl $APP_URL/actuator/health"
+            if [ $check -eq 10 ]; then
+              echo "⚠️ Health check timeout - application may still be starting"
             else
               sleep 15
             fi
           fi
         done
         
-        echo ""
-        echo "🎉 BULLETPROOF DEPLOYMENT COMPLETE!"
-        echo "🚀 Your crash-proof Spring Boot application is ready!"
-        echo "🛡️ Guaranteed stable with 2GB memory allocation!"
+        echo "Application deployed successfully!"
 
-  # ═══════════════════════════════════════════════════════════
-  # PHASE 4: SUCCESS CELEBRATION & MONITORING
-  # ═══════════════════════════════════════════════════════════
-  success-celebration:
+  # ════════════════════════════════════════════════════════
+  # DEPLOYMENT SUMMARY
+  # ════════════════════════════════════════════════════════
+  summary:
     runs-on: ubuntu-latest
-    needs: [containerization, bulletproof-deployment]
-    name: Success Celebration & Monitoring
+    needs: [build-image, deploy]
+    name: Deployment Summary
     if: github.ref == 'refs/heads/main'
     
     steps:
-    - name: Victory Celebration & Future Monitoring
+    - name: Success Summary
       run: |
         echo ""
-        echo "🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆"
-        echo "🎊 BULLETPROOF CI/CD PIPELINE VICTORY! 🎊"
-        echo "🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆"
+        echo "🚀 CI/CD PIPELINE COMPLETED SUCCESSFULLY!"
         echo ""
-        echo "🎯 MISSION ACCOMPLISHED - NO MORE CRASHES!"
+        echo "Deployment Details:"
+        echo "  Container Image: ${{ needs.build-image.outputs.image }}"
+        echo "  Live Application: ${{ needs.deploy.outputs.app-url }}"
+        echo "  Memory Allocation: 2GB"
+        echo "  CPU Allocation: 1 vCPU"
+        echo "  Health Monitoring: Enabled"
         echo ""
-        echo "✅ BULLETPROOF FEATURES ACTIVATED:"
-        echo "   🛡️ 2GB Memory Allocation - Crash Protection!"
-        echo "   🖥️ 1 vCPU Performance - Smooth Operation!"
-        echo "   🏥 Health Monitoring - Self-Healing System!"
-        echo "   🔄 Auto-Recovery - Resilient Architecture!"
-        echo "   📈 Performance Optimized - Enterprise Grade!"
-        echo ""
-        echo "🌟 YOUR LIVE APPLICATION:"
-        echo "🔗 Main App: ${{ needs.bulletproof-deployment.outputs.app-url }}"
-        echo "📚 Swagger UI: ${{ needs.bulletproof-deployment.outputs.app-url }}/api-docs-ui"
-        echo "📋 Alternative Swagger: ${{ needs.bulletproof-deployment.outputs.app-url }}/swagger-ui/index.html"
-        echo ""
-        echo "🚀 FUTURE DEPLOYMENTS ARE NOW:"
-        echo "   ✅ 100% Crash-Proof"
-        echo "   ✅ Fully Automated"
-        echo "   ✅ Zero Downtime"
-        echo "   ✅ Self-Monitoring"
-        echo "   ✅ Auto-Scaling Ready"
-        echo ""
-        echo "💡 NEXT PUSH WILL AUTOMATICALLY:"
-        echo "   → Build your code"
-        echo "   → Run all tests"
-        echo "   → Create Docker image"
-        echo "   → Deploy with bulletproof config"
-        echo "   → Provide live URLs"
-        echo "   → Monitor health status"
-        echo ""
-        echo "🎊 CONGRATULATIONS! 🎊"
-        echo "You now have enterprise-grade, crash-proof CI/CD!"
-        echo "Your Spring Boot application will NEVER crash again!"
+        echo "Your Spring Boot application is now live and stable!"
+        echo "Next push will automatically trigger a new deployment."
         echo ""
