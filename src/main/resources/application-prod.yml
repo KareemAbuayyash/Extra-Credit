@@ -3,7 +3,9 @@ spring:
   application:
     name: payroll-prod
 
-  # AWS RDS PostgreSQL Database (Production)
+  # ────────────────────────────────────────────────────────────────
+  # 1) PRODUCTION DATASOURCE → POSTGRES ON RDS
+  # ────────────────────────────────────────────────────────────────
   datasource:
     url: jdbc:postgresql://payroll-prod-db.chxxo89q9lcl.us-east-1.rds.amazonaws.com:5432/payroll_prod
     driver-class-name: org.postgresql.Driver
@@ -15,11 +17,13 @@ spring:
       connection-timeout: 30000
       idle-timeout: 300000
 
-  # JPA Configuration for Production
+  # ────────────────────────────────────────────────────────────────
+  # 2) JPA / HIBERNATE FOR POSTGRES (PRODUCTION)
+  # ────────────────────────────────────────────────────────────────
   jpa:
     database-platform: org.hibernate.dialect.PostgreSQLDialect
     hibernate:
-      ddl-auto: validate   # Do not modify schema in prod
+      ddl-auto: validate    # NEVER modify schema in production
     show-sql: false
     properties:
       hibernate:
@@ -27,7 +31,9 @@ spring:
         jdbc:
           batch_size: 25
 
-  # Email Configuration (From environment variables)
+  # ────────────────────────────────────────────────────────────────
+  # 3) MAIL (Production reads from ENV variables)
+  # ────────────────────────────────────────────────────────────────
   mail:
     host: ${MAIL_HOST:smtp.gmail.com}
     port: ${MAIL_PORT:587}
@@ -40,7 +46,9 @@ spring:
           starttls:
             enable: true
 
-# API Documentation (Enabled for production)
+# ────────────────────────────────────────────────────────────────
+# 4) SWAGGER / OPENAPI FOR PRODUCTION
+# ────────────────────────────────────────────────────────────────
 springdoc:
   swagger-ui:
     enabled: true
@@ -49,20 +57,26 @@ springdoc:
     enabled: true
     path: /api-docs
 
-# JWT Configuration (Short expiration for security)
+# ────────────────────────────────────────────────────────────────
+# 5) JWT (SHORT EXPIRATION)
+# ────────────────────────────────────────────────────────────────
 security:
   jwt:
     secret: ${JWT_SECRET}
-    expiration: 1800000  # 30 minutes
+    expiration: 1800000    # 30 minutes
 
-# Minimal logging for production
+# ────────────────────────────────────────────────────────────────
+# 6) LOGGING – minimal in prod
+# ────────────────────────────────────────────────────────────────
 logging:
   level:
     com.example.payroll: WARN
     org.springframework.security: ERROR
     root: ERROR
 
-# Minimal management endpoints
+# ────────────────────────────────────────────────────────────────
+# 7) ACTUATOR – minimal endpoints in prod
+# ────────────────────────────────────────────────────────────────
 management:
   endpoints:
     web:
@@ -72,7 +86,9 @@ management:
     health:
       show-details: never
 
-# Production server settings
+# ────────────────────────────────────────────────────────────────
+# 8) SERVER SETTINGS (prod)
+# ────────────────────────────────────────────────────────────────
 server:
   port: ${SERVER_PORT:8080}
   compression:

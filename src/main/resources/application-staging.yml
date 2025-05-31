@@ -3,7 +3,9 @@ spring:
   application:
     name: employee-payroll-system-staging
 
-  # Staging Database - Postgres (instead of H2)
+  # ────────────────────────────────────────────────────────────────
+  # 1) STAGING DATASOURCE → POSTGRES ON RDS
+  # ────────────────────────────────────────────────────────────────
   datasource:
     url: jdbc:postgresql://payroll-prod-db.chxxo89q9lcl.us-east-1.rds.amazonaws.com:5432/payroll_staging
     driver-class-name: org.postgresql.Driver
@@ -15,17 +17,21 @@ spring:
       connection-timeout: 20000
       idle-timeout: 300000
 
-  # JPA Settings for Postgres in Staging
+  # ────────────────────────────────────────────────────────────────
+  # 2) JPA / HIBERNATE FOR POSTGRES (STAGING)
+  # ────────────────────────────────────────────────────────────────
   jpa:
     database-platform: org.hibernate.dialect.PostgreSQLDialect
     hibernate:
-      ddl-auto: update     # or validate, depending on your staging strategy
+      ddl-auto: update    # will apply any schema changes automatically
     show-sql: false
     properties:
       hibernate:
         format_sql: false
 
-  # Staging Email Configuration
+  # ────────────────────────────────────────────────────────────────
+  # 3) MAIL FOR STAGING
+  # ────────────────────────────────────────────────────────────────
   mail:
     host: smtp.gmail.com
     port: 587
@@ -38,7 +44,9 @@ spring:
           starttls:
             enable: true
 
-# API Documentation for Staging Tests
+# ────────────────────────────────────────────────────────────────
+# 4) SWAGGER / OPENAPI FOR STAGING
+# ────────────────────────────────────────────────────────────────
 springdoc:
   swagger-ui:
     enabled: true
@@ -46,19 +54,25 @@ springdoc:
   api-docs:
     path: /v3/api-docs
 
-# Staging JWT Configuration
+# ────────────────────────────────────────────────────────────────
+# 5) JWT (STAGING SECRET)
+# ────────────────────────────────────────────────────────────────
 auth:
   jwt:
     secret-key: ${JWT_SECRET:staging-jwt-secret-key-for-testing-67890}
-    token-expiration: 3600000  # 1 hour
+    token-expiration: 3600000   # 1 hour
 
-# Staging Logging
+# ────────────────────────────────────────────────────────────────
+# 6) LOGGING FOR STAGING
+# ────────────────────────────────────────────────────────────────
 logging:
   level:
     com.example.payroll: INFO
     org.springframework.security: WARN
 
-# Only expose health/info/metrics in staging
+# ────────────────────────────────────────────────────────────────
+# 7) ACTUATOR – only show health/info/metrics in staging
+# ────────────────────────────────────────────────────────────────
 management:
   endpoints:
     web:
