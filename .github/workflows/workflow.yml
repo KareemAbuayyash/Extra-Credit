@@ -1,3 +1,4 @@
+# .github/workflows/workflow.yml
 name: Bulletproof CI/CD Pipeline - No Crashes
 
 on:
@@ -19,7 +20,7 @@ env:
 
 jobs:
   # ────────────────────────────────────────────────────────────────
-  # JOB 1: QUALITY ASSURANCE & TESTING
+  # 1) QUALITY ASSURANCE & TESTING
   # ────────────────────────────────────────────────────────────────
   quality-assurance:
     runs-on: ubuntu-latest
@@ -62,7 +63,7 @@ jobs:
           mvn clean package -DskipTests -B
 
   # ────────────────────────────────────────────────────────────────
-  # JOB 2: CONTAINERIZATION & REGISTRY PUSH
+  # 2) CONTAINERIZATION & REGISTRY PUSH
   # ────────────────────────────────────────────────────────────────
   containerization:
     needs: quality-assurance
@@ -122,7 +123,7 @@ jobs:
           echo "image-uri=$ECR_REGISTRY/$ECR_REPO:$IMAGE_TAG" >> $GITHUB_OUTPUT
 
   # ────────────────────────────────────────────────────────────────
-  # JOB 3: DEPLOYMENT (REGISTER ECS TASK + RUN)
+  # 3) DEPLOYMENT → ECS/Fargate (No Crashes)
   # ────────────────────────────────────────────────────────────────
   deployment:
     needs: containerization
@@ -138,6 +139,23 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
           aws-region: ${{ env.AWS_REGION }}
+
+      - name: Discover Default VPC & Public Subnets
+        id: discover-network
+        run: |
+          # 1) Find Default VPC ID
+          VPC_ID=$(aws ec2 describe-vpcs \
+            --filters "Name=isDefault,Values=true" \
+            --query "Vpcs[0].VpcId" --output text)
+
+          # 2) List the first two public subnets
+          PUBLIC_SUBNETS=$(aws ec2 describe-subnets \
+            --filters "Name=vpc-id,Values=$VPC_ID" \
+                     "Name=map-public-ip-on-launch,Values=true" \
+            --query "Subnets[0:2].SubnetId" \
+            --output text | tr '\t' ',')
+
+          echo "subnets=$PUBLIC_SUBNETS" >> $GITHUB_OUTPUT
 
       - name: Create ECS Task Definition JSON
         run: |
@@ -196,26 +214,33 @@ jobs:
       - name: Run ECS Task (Fargate)
         run: |
           echo "🚀 Launching Fargate task..."
+          SUBNETS="${{ steps.discover-network.outputs.subnets }}"
           TASK_ARN=$(aws ecs run-task \
             --cluster "${{ env.ECS_CLUSTER_NAME }}" \
             --task-definition "${{ steps.register-task.outputs.task-def-arn }}" \
             --launch-type FARGATE \
-            --network-configuration "awsvpcConfiguration={subnets=[subnet-AAA,subnet-BBB],securityGroups=[sg-XXXXXX],assignPublicIp=ENABLED}" \
+            --network-configuration "awsvpcConfiguration={subnets=[${SUBNETS}],securityGroups=[sg-XXXXXX],assignPublicIp=ENABLED}" \
             --query 'tasks[0].taskArn' --output text)
           echo "Launched: $TASK_ARN"
 
       - name: Wait for Task to Reach RUNNING
         run: |
-          TASK_ID=$(echo "${{ steps.register-task.outputs.task-def-arn }}" | cut -d'/' -f2)
-          echo "⏳ Checking status of task $TASK_ID..."
+          # Extract only the Task ID portion
+          TASK_ID=$(echo "${{ steps.run-ecs.outputs.task-arn }}" | cut -d'/' -f3)
+          echo "⏳ Checking status of $TASK_ID..."
           for i in {1..20}; do
-            STATUS=$(aws ecs describe-tasks --cluster "${{ env.ECS_CLUSTER_NAME }}" --tasks $TASK_ID --query 'tasks[0].lastStatus' --output text)
+            STATUS=$(aws ecs describe-tasks \
+              --cluster "${{ env.ECS_CLUSTER_NAME }}" \
+              --tasks $TASK_ID \
+              --query 'tasks[0].lastStatus' --output text)
             echo "Attempt $i: $STATUS"
             if [ "$STATUS" = "RUNNING" ]; then
-              echo "✅ Task is RUNNING"; break
+              echo "✅ Task is RUNNING"
+              break
             fi
             if [ "$STATUS" = "STOPPED" ]; then
-              echo "❌ Task stopped unexpectedly!"; exit 1
+              echo "❌ Task stopped unexpectedly!"
+              exit 1
             fi
             sleep 15
           done
