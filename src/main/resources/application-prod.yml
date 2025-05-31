@@ -4,7 +4,7 @@ spring:
 
   # PostgreSQL Database
   datasource:
-    url: jdbc:postgresql://payroll-prod-db.chxxo89q9lcl.us-east-1.rds.amazonaws.com:5432/payroll_prod
+    url: jdbc:postgresql://kareem-db.chxxo89q9lcl.us-east-1.rds.amazonaws.com:5432/payroll_prod
     driver-class-name: org.postgresql.Driver
     username: payroll_user
     password: SecurePassword123!
