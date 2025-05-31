@@ -2,10 +2,9 @@
 spring:
   application:
     name: employee-payroll-system-prod
-  
-  # Production Database Configuration - AWS RDS
-datasource:
-    # Notice the "?sslmode=require" after the port/database
+
+  # ── Production Database Configuration ───────────────────────────────────────
+  datasource:
     url: jdbc:postgresql://${DATABASE_HOST}:5432/${DATABASE_NAME:payroll_prod}?sslmode=require
     username: ${DATABASE_USER:payroll_user}
     password: SecurePassword123!
@@ -15,33 +14,33 @@ datasource:
       minimum-idle: 3
       connection-timeout: 20000
       idle-timeout: 600000
-  
-  # Hibernate & JPA Settings
-    jpa:
-      database-platform: org.hibernate.dialect.PostgreSQLDialect
+
+  # ── Hibernate & JPA Settings ────────────────────────────────────────────────
+  jpa:
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+    hibernate:
+      ddl-auto: update       # Changed from validate → update
+    show-sql: false
+    properties:
       hibernate:
-        ddl-auto: update  # Changed from validate to update for production flexibility
-      show-sql: false
-      properties:
-        hibernate:
-          format_sql: false
-          jdbc:
-            batch_size: 20
+        format_sql: false
+        jdbc:
+          batch_size: 20
 
-  # SMTP Email Service Configuration
-    mail:
-      host: ${SMTP_HOST:smtp.gmail.com}
-      port: ${SMTP_PORT:587}
-      username: ${SMTP_USER}
-      password: ${SMTP_PASS}
-      properties:
-        mail:
-          smtp:
-            auth: true
-            starttls:
-              enable: true
+  # ── SMTP Email Service Configuration ───────────────────────────────────────
+  mail:
+    host: ${SMTP_HOST:smtp.gmail.com}
+    port: ${SMTP_PORT:587}
+    username: ${SMTP_USER}
+    password: ${SMTP_PASS}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
 
-# OpenAPI Documentation Settings - ENABLED FOR PRODUCTION
+# ── OpenAPI / Swagger ────────────────────────────────────────────────────────
 springdoc:
   swagger-ui:
     enabled: true
@@ -56,20 +55,20 @@ springdoc:
     enabled: true
     path: /v3/api-docs
 
-# Authentication & Security Configuration
+# ── Authentication & Security ─────────────────────────────────────────────────
 auth:
   jwt:
     secret-key: ${JWT_SECRET_KEY}
-    token-expiration: 1800000  # 30 minutes for security
+    token-expiration: 1800000
 
-# Production Logging Configuration
+# ── Logging ──────────────────────────────────────────────────────────────────
 logging:
   level:
     com.example.payroll: INFO
     org.springframework.security: WARN
     root: WARN
 
-# Health Check & Monitoring - More endpoints for production monitoring
+# ── Health & Monitoring ──────────────────────────────────────────────────────
 management:
   endpoints:
     web:
@@ -79,7 +78,7 @@ management:
     health:
       show-details: when-authorized
 
-# Server Configuration
+# ── Server Configuration ────────────────────────────────────────────────────
 server:
   port: ${APP_PORT:8080}
   compression:
