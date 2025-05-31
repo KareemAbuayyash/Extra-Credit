@@ -2,45 +2,33 @@ spring:
   application:
     name: employee-payroll-system-dev
 
-  # ────────────────────────────────────────────────────────────────
-  # 1) DEVELOPMENT DATASOURCE → H2 (IN-MEMORY)
-  # ────────────────────────────────────────────────────────────────
+  # H2 Database (In-Memory)
   datasource:
     url: jdbc:h2:mem:devdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
     driver-class-name: org.h2.Driver
     username: sa
     password:
-
-    # (Optional) HikariCP tuning for H2
     hikari:
       maximum-pool-size: 5
       minimum-idle: 1
-      connection-timeout: 20000
-      idle-timeout: 300000
 
-  # ────────────────────────────────────────────────────────────────
-  # 2) JPA / HIBERNATE FOR H2
-  # ────────────────────────────────────────────────────────────────
+  # JPA/Hibernate for H2
   jpa:
     database-platform: org.hibernate.dialect.H2Dialect
     hibernate:
-      ddl-auto: create-drop   # Create tables at startup, drop at shutdown
+      ddl-auto: create-drop
     show-sql: true
     properties:
       hibernate:
         format_sql: true
 
-  # ────────────────────────────────────────────────────────────────
-  # 3) H2 CONSOLE (DEV-ONLY)
-  # ────────────────────────────────────────────────────────────────
+  # H2 Console
   h2:
     console:
       enabled: true
       path: /database-console
 
-  # ────────────────────────────────────────────────────────────────
-  # 4) DEV MAIL (reuse Gmail locally, if desired)
-  # ────────────────────────────────────────────────────────────────
+  # Mail
   mail:
     host: smtp.gmail.com
     port: 587
@@ -53,27 +41,22 @@ spring:
           starttls:
             enable: true
 
-# ────────────────────────────────────────────────────────────────
-# 5) JWT (DEV SECRET + LONG EXPIRATION)
-# ────────────────────────────────────────────────────────────────
+# JWT (Dev)
 auth:
   jwt:
     secret-key: development-jwt-secret-key-for-testing-12345
     token-expiration: 36000000   # 10 hours
 
-# ────────────────────────────────────────────────────────────────
-# 6) DEV LOGGING (VERBOSE)
-# ────────────────────────────────────────────────────────────────
+# Logging (Verbose)
 logging:
   level:
     com.example.payroll: DEBUG
     org.springframework.security: DEBUG
 
-# ────────────────────────────────────────────────────────────────
-# 7) DEV ACTUATOR (Expose Everything)
-# ────────────────────────────────────────────────────────────────
+# Actuator (All endpoints)
 management:
   endpoints:
     web:
       exposure:
         include: "*"
+
