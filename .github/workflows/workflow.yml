@@ -19,6 +19,7 @@ env:
   APP_CONTAINER_NAME: payroll-app
 
 jobs:
+
   # ────────────────────────────────────────────────────────────────
   # 1) QUALITY ASSURANCE & TESTING
   # ────────────────────────────────────────────────────────────────
@@ -27,74 +28,76 @@ jobs:
     name: Quality Assurance & Testing Suite
 
     steps:
-      - name: Source Code Retrieval
+      - name: Check out source code
         uses: actions/checkout@v4
 
-      - name: Java 21 Environment Setup
+      - name: Set up Java 21 (Temurin)
         uses: actions/setup-java@v4
         with:
           java-version: '21'
           distribution: 'temurin'
 
-      - name: Maven Dependency Caching
+      - name: Cache Maven dependencies
         uses: actions/cache@v4
         with:
           path: ~/.m2
           key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
           restore-keys: ${{ runner.os }}-m2
 
-      - name: Execute Test Suite
+      - name: Run tests
         run: |
-          echo "Executing comprehensive test suite..."
+          echo "🔧 Running unit & integration tests..."
           mvn clean test -B
 
-      - name: Test Results Publication
+      - name: Publish test results
         uses: dorny/test-reporter@v1
         if: success() || failure()
         with:
-          name: Test Execution Report
+          name: Test Report
           path: target/surefire-reports/*.xml
           reporter: java-junit
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Application Compilation (skip tests)
+      - name: Compile application (skip tests)
         run: |
-          echo "Compiling production-ready application..."
+          echo "📦 Compiling application JAR..."
           mvn clean package -DskipTests -B
 
   # ────────────────────────────────────────────────────────────────
-  # 2) CONTAINERIZATION & REGISTRY PUSH
+  # 2) BUILD & PUSH DOCKER IMAGE TO ECR
   # ────────────────────────────────────────────────────────────────
   containerization:
     needs: quality-assurance
     runs-on: ubuntu-latest
-    name: Container Build & Registry Push
+    name: Build & Push Docker Image to ECR
     if: github.ref == 'refs/heads/main'
 
     outputs:
-      image-uri: ${{ steps.build-image.outputs.image-uri }}
+      image-uri: ${{ steps.push-image.outputs.image-uri }}
 
     steps:
-      - name: Source Code Retrieval
+      - name: Check out source code
         uses: actions/checkout@v4
 
-      - name: Java 21 Environment Setup
+      - name: Set up Java 21 (Temurin)
         uses: actions/setup-java@v4
         with:
           java-version: '21'
           distribution: 'temurin'
 
-      - name: Maven Dependency Caching
+      - name: Cache Maven dependencies
         uses: actions/cache@v4
         with:
           path: ~/.m2
           key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
           restore-keys: ${{ runner.os }}-m2
 
-      - name: Production Build (skip tests)
-        run: mvn clean package -DskipTests -B
+      - name: Build fat JAR for production (skip tests)
+        run: |
+          echo "🏗️ Building production JAR..."
+          mvn clean package -DskipTests -B
 
-      - name: AWS Authentication
+      - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -102,28 +105,30 @@ jobs:
           aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: ECR Registry Login
+      - name: Log in to Amazon ECR
         id: ecr-login
         uses: aws-actions/amazon-ecr-login@v2
 
       - name: Build & Push Docker Image
-        id: build-image
+        id: push-image
         env:
           ECR_REGISTRY: ${{ steps.ecr-login.outputs.registry }}
           IMAGE_TAG: ${{ github.sha }}
         run: |
-          echo "Building Docker image..."
+          echo "🐳 Building Docker image..."
           docker build -t $ECR_REGISTRY/$ECR_REPO:$IMAGE_TAG .
+
+          echo "🏷️ Tagging 'latest'..."
           docker tag $ECR_REGISTRY/$ECR_REPO:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPO:latest
 
-          echo "Pushing images to ECR..."
+          echo "🚀 Pushing to ECR..."
           docker push $ECR_REGISTRY/$ECR_REPO:$IMAGE_TAG
           docker push $ECR_REGISTRY/$ECR_REPO:latest
 
           echo "image-uri=$ECR_REGISTRY/$ECR_REPO:$IMAGE_TAG" >> $GITHUB_OUTPUT
 
   # ────────────────────────────────────────────────────────────────
-  # 3) DEPLOYMENT → ECS/Fargate (No Crashes)
+  # 3) DEPLOY TO ECS/FARGATE
   # ────────────────────────────────────────────────────────────────
   deployment:
     needs: containerization
@@ -132,7 +137,7 @@ jobs:
     if: github.ref == 'refs/heads/main'
 
     steps:
-      - name: AWS Authentication
+      - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -143,22 +148,26 @@ jobs:
       - name: Discover Default VPC & Public Subnets
         id: discover-network
         run: |
-          # 1) Find Default VPC ID
+          echo "🔍 Finding default VPC..."
           VPC_ID=$(aws ec2 describe-vpcs \
             --filters "Name=isDefault,Values=true" \
-            --query "Vpcs[0].VpcId" --output text)
+            --query "Vpcs[0].VpcId" \
+            --output text)
 
-          # 2) List the first two public subnets
-          PUBLIC_SUBNETS=$(aws ec2 describe-subnets \
+          echo "🔍 Fetching two public subnets..."
+          # Adjust “0:2” if you need more/fewer subnets
+          SUBNET_IDS=$(aws ec2 describe-subnets \
             --filters "Name=vpc-id,Values=$VPC_ID" \
                      "Name=map-public-ip-on-launch,Values=true" \
             --query "Subnets[0:2].SubnetId" \
             --output text | tr '\t' ',')
 
-          echo "subnets=$PUBLIC_SUBNETS" >> $GITHUB_OUTPUT
+          echo "public-subnets=$SUBNET_IDS" >> $GITHUB_OUTPUT
+          echo "✅ VPC=$VPC_ID  Subnets=$SUBNET_IDS"
 
-      - name: Create ECS Task Definition JSON
+      - name: Generate ECS Task Definition
         run: |
+          echo "📄 Creating ECS task definition JSON..."
           cat > ecs-task-definition.json << 'EOF'
           {
             "family": "${{ env.ECS_TASK_FAMILY }}",
@@ -202,44 +211,61 @@ jobs:
           }
           EOF
 
-      - name: Register New ECS Task Definition
+      - name: Register ECS Task Definition
         id: register-task
         run: |
-          TASK_DEF_ARN=$(aws ecs register-task-definition \
+          echo "🔧 Registering ECS task definition..."
+          TD_ARN=$(aws ecs register-task-definition \
             --cli-input-json file://ecs-task-definition.json \
-            --query 'taskDefinition.taskDefinitionArn' --output text)
-          echo "task-def-arn=$TASK_DEF_ARN" >> $GITHUB_OUTPUT
-          echo "✅ Registered Task Definition: $TASK_DEF_ARN"
+            --query "taskDefinition.taskDefinitionArn" \
+            --output text)
 
-      - name: Run ECS Task (Fargate)
+          echo "task-def-arn=$TD_ARN" >> $GITHUB_OUTPUT
+          echo "✅ Registered Task Definition → $TD_ARN"
+
+      - name: Run Task on Fargate
+        id: run-ecs
         run: |
           echo "🚀 Launching Fargate task..."
-          SUBNETS="${{ steps.discover-network.outputs.subnets }}"
+          SUBNETS="${{ steps.discover-network.outputs.public-subnets }}"
+          # MUST replace this placeholder below with a real Security Group ID in your account!
+          # e.g. sg-0a1b2c3d4e5f6g7h
+          SG_ID="${{ secrets.ECS_SECURITY_GROUP }}"
+          
           TASK_ARN=$(aws ecs run-task \
             --cluster "${{ env.ECS_CLUSTER_NAME }}" \
             --task-definition "${{ steps.register-task.outputs.task-def-arn }}" \
             --launch-type FARGATE \
-            --network-configuration "awsvpcConfiguration={subnets=[${SUBNETS}],securityGroups=[sg-XXXXXX],assignPublicIp=ENABLED}" \
-            --query 'tasks[0].taskArn' --output text)
-          echo "Launched: $TASK_ARN"
+            --network-configuration "awsvpcConfiguration={subnets=[${SUBNETS}],securityGroups=[${SG_ID}],assignPublicIp=ENABLED}" \
+            --query "tasks[0].taskArn" \
+            --output text)
 
-      - name: Wait for Task to Reach RUNNING
+          echo "task-arn=$TASK_ARN" >> $GITHUB_OUTPUT
+          echo "✅ Launched ECS Task → $TASK_ARN"
+
+      - name: Wait for Task to be RUNNING
         run: |
-          # Extract only the Task ID portion
+          echo "⏳ Waiting for ECS task to be in RUNNING status..."
           TASK_ID=$(echo "${{ steps.run-ecs.outputs.task-arn }}" | cut -d'/' -f3)
-          echo "⏳ Checking status of $TASK_ID..."
+
           for i in {1..20}; do
             STATUS=$(aws ecs describe-tasks \
               --cluster "${{ env.ECS_CLUSTER_NAME }}" \
               --tasks $TASK_ID \
-              --query 'tasks[0].lastStatus' --output text)
-            echo "Attempt $i: $STATUS"
+              --query "tasks[0].lastStatus" \
+              --output text)
+
+            echo "Attempt $i → Status = $STATUS"
             if [ "$STATUS" = "RUNNING" ]; then
-              echo "✅ Task is RUNNING"
+              echo "✅ ECS task is RUNNING"
               break
-            fi
-            if [ "$STATUS" = "STOPPED" ]; then
-              echo "❌ Task stopped unexpectedly!"
+            elif [ "$STATUS" = "STOPPED" ]; then
+              echo "❌ ECS task STOPPED unexpectedly"
+              aws ecs describe-tasks \
+                --cluster "${{ env.ECS_CLUSTER_NAME }}" \
+                --tasks $TASK_ID \
+                --query "tasks[0].[stoppedReason,containers[0].exitCode,containers[0].reason]" \
+                --output table
               exit 1
             fi
             sleep 15
@@ -247,4 +273,4 @@ jobs:
 
       - name: Deployment Complete
         run: |
-          echo "🎉 Deployment complete! Your Spring Boot app is now running in ECS (prod)."
+          echo "🎉 Deployment complete! Your Spring Boot app is live on ECS/Fargate."
