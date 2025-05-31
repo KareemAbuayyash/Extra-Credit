@@ -17,29 +17,29 @@ datasource:
       idle-timeout: 600000
   
   # Hibernate & JPA Settings
-  jpa:
-    database-platform: org.hibernate.dialect.PostgreSQLDialect
-    hibernate:
-      ddl-auto: update  # Changed from validate to update for production flexibility
-    show-sql: false
-    properties:
+    jpa:
+      database-platform: org.hibernate.dialect.PostgreSQLDialect
       hibernate:
-        format_sql: false
-        jdbc:
-          batch_size: 20
+        ddl-auto: update  # Changed from validate to update for production flexibility
+      show-sql: false
+      properties:
+        hibernate:
+          format_sql: false
+          jdbc:
+            batch_size: 20
 
   # SMTP Email Service Configuration
-  mail:
-    host: ${SMTP_HOST:smtp.gmail.com}
-    port: ${SMTP_PORT:587}
-    username: ${SMTP_USER}
-    password: ${SMTP_PASS}
-    properties:
-      mail:
-        smtp:
-          auth: true
-          starttls:
-            enable: true
+    mail:
+      host: ${SMTP_HOST:smtp.gmail.com}
+      port: ${SMTP_PORT:587}
+      username: ${SMTP_USER}
+      password: ${SMTP_PASS}
+      properties:
+        mail:
+          smtp:
+            auth: true
+            starttls:
+              enable: true
 
 # OpenAPI Documentation Settings - ENABLED FOR PRODUCTION
 springdoc:
