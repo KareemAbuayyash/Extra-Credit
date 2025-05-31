@@ -37,6 +37,7 @@ public class SecurityConfig {
                 .requestMatchers("/api-docs-ui/**").permitAll()
                 .requestMatchers("/api-docs-ui.html").permitAll()
                 .requestMatchers("/employees/**").permitAll()
+                .requestMatchers("/departments/**").permitAll()
                 .requestMatchers("/swagger-ui/**").permitAll()
                 .requestMatchers("/swagger-ui.html").permitAll()
                 .requestMatchers("/v3/api-docs/**").permitAll()
