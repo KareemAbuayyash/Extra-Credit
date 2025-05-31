@@ -1,19 +1,25 @@
+# src/main/resources/application-staging.yml
 spring:
   application:
     name: employee-payroll-system-staging
-  
-  # Staging Database - H2 for Testing
+
+  # Staging Database - Postgres (instead of H2)
   datasource:
-    url: jdbc:h2:mem:stagingdb;DB_CLOSE_DELAY=-1
-    driver-class-name: org.h2.Driver
-    username: staging_user
-    password: staging_pass
-  
-  # Staging JPA Configuration
+    url: jdbc:postgresql://payroll-prod-db.chxxo89q9lcl.us-east-1.rds.amazonaws.com:5432/payroll_staging
+    driver-class-name: org.postgresql.Driver
+    username: payroll_user
+    password: SecurePassword123!
+    hikari:
+      maximum-pool-size: 5
+      minimum-idle: 1
+      connection-timeout: 20000
+      idle-timeout: 300000
+
+  # JPA Settings for Postgres in Staging
   jpa:
-    database-platform: org.hibernate.dialect.H2Dialect
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
     hibernate:
-      ddl-auto: create-drop
+      ddl-auto: update     # or validate, depending on your staging strategy
     show-sql: false
     properties:
       hibernate:
@@ -52,7 +58,7 @@ logging:
     com.example.payroll: INFO
     org.springframework.security: WARN
 
-# Selected Actuator Endpoints
+# Only expose health/info/metrics in staging
 management:
   endpoints:
     web:
