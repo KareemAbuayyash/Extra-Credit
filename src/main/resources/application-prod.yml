@@ -5,8 +5,8 @@ spring:
   
   # Production Database Configuration - AWS RDS
   datasource:
-    url: jdbc:postgresql://${DATABASE_HOST}:5432/${DATABASE_NAME:employee_payroll_db}
-    username: ${DATABASE_USER:admin_user}
+    url: jdbc:postgresql://${DATABASE_HOST}:5432/${DATABASE_NAME:payroll_prod}
+    username: ${DATABASE_USER:payroll_user}
     password: ${DATABASE_PASSWORD}
     driver-class-name: org.postgresql.Driver
     hikari:
