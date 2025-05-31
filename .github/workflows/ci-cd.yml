@@ -23,7 +23,7 @@ jobs:
   # ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
   validate-and-package:
     runs-on: ubuntu-latest
-    name: Quality Assurance & Packaging
+    name: Test & Package Application
     
     outputs:
       image: ${{ steps.container-build.outputs.image }}
@@ -54,7 +54,7 @@ jobs:
       uses: dorny/test-reporter@v1
       if: success() || failure()
       with:
-        name: Quality Assurance Results
+        name: Test Results
         path: target/surefire-reports/*.xml
         reporter: java-junit
         token: ${{ secrets.GITHUB_TOKEN }}
