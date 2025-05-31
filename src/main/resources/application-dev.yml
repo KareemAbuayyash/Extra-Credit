@@ -1,10 +1,9 @@
-# src/main/resources/application-dev.yml
 spring:
   application:
     name: employee-payroll-system-dev
 
   # ────────────────────────────────────────────────────────────────
-  # 1) DEVELOPMENT DATASOURCE → H2 (IN‐MEMORY)
+  # 1) DEVELOPMENT DATASOURCE → H2 (IN-MEMORY)
   # ────────────────────────────────────────────────────────────────
   datasource:
     url: jdbc:h2:mem:devdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
@@ -12,7 +11,7 @@ spring:
     username: sa
     password:
 
-    # (Optional) HikariCP tuning
+    # (Optional) HikariCP tuning for H2
     hikari:
       maximum-pool-size: 5
       minimum-idle: 1
@@ -32,7 +31,7 @@ spring:
         format_sql: true
 
   # ────────────────────────────────────────────────────────────────
-  # 3) H2 CONSOLE (DEV‐ONLY)
+  # 3) H2 CONSOLE (DEV-ONLY)
   # ────────────────────────────────────────────────────────────────
   h2:
     console:
@@ -40,7 +39,7 @@ spring:
       path: /database-console
 
   # ────────────────────────────────────────────────────────────────
-  # 4) DEV MAIL (can reuse Gmail creds locally)
+  # 4) DEV MAIL (reuse Gmail locally, if desired)
   # ────────────────────────────────────────────────────────────────
   mail:
     host: smtp.gmail.com
@@ -55,15 +54,7 @@ spring:
             enable: true
 
 # ────────────────────────────────────────────────────────────────
-# 5) SWAGGER / OPENAPI FOR DEV
-# ────────────────────────────────────────────────────────────────
-springdoc:
-  swagger-ui:
-    enabled: true
-    # We set /api-docs-ui in application.properties; no need to override here
-
-# ────────────────────────────────────────────────────────────────
-# 6) JWT (DEV SECRET + LONG EXPIRATION)
+# 5) JWT (DEV SECRET + LONG EXPIRATION)
 # ────────────────────────────────────────────────────────────────
 auth:
   jwt:
@@ -71,7 +62,7 @@ auth:
     token-expiration: 36000000   # 10 hours
 
 # ────────────────────────────────────────────────────────────────
-# 7) DEV LOGGING (VERBOSE)
+# 6) DEV LOGGING (VERBOSE)
 # ────────────────────────────────────────────────────────────────
 logging:
   level:
@@ -79,7 +70,7 @@ logging:
     org.springframework.security: DEBUG
 
 # ────────────────────────────────────────────────────────────────
-# 8) DEV ACTUATOR (Expose All Endpoints)
+# 7) DEV ACTUATOR (Expose Everything)
 # ────────────────────────────────────────────────────────────────
 management:
   endpoints:
