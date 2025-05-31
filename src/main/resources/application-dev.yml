@@ -12,7 +12,7 @@ spring:
     username: sa
     password:
 
-    # (Optional) Adjust Hikari settings if you want:
+    # (Optional) HikariCP tuning
     hikari:
       maximum-pool-size: 5
       minimum-idle: 1
@@ -23,13 +23,9 @@ spring:
   # 2) JPA / HIBERNATE FOR H2
   # ────────────────────────────────────────────────────────────────
   jpa:
-    # Hibernate will auto‐discover H2 dialect, but being explicit is okay
     database-platform: org.hibernate.dialect.H2Dialect
-
-    # Create tables on startup, drop them on shutdown:
     hibernate:
-      ddl-auto: create-drop
-
+      ddl-auto: create-drop   # Create tables at startup, drop at shutdown
     show-sql: true
     properties:
       hibernate:
@@ -44,7 +40,7 @@ spring:
       path: /database-console
 
   # ────────────────────────────────────────────────────────────────
-  # 4) DEV MAIL (can reuse your Gmail credentials for local testing)
+  # 4) DEV MAIL (can reuse Gmail creds locally)
   # ────────────────────────────────────────────────────────────────
   mail:
     host: smtp.gmail.com
@@ -64,9 +60,7 @@ spring:
 springdoc:
   swagger-ui:
     enabled: true
-    path: /api-docs-ui
-  api-docs:
-    path: /v3/api-docs
+    # We set /api-docs-ui in application.properties; no need to override here
 
 # ────────────────────────────────────────────────────────────────
 # 6) JWT (DEV SECRET + LONG EXPIRATION)
@@ -85,7 +79,7 @@ logging:
     org.springframework.security: DEBUG
 
 # ────────────────────────────────────────────────────────────────
-# 8) DEV ACTUATOR (Expose Everything)
+# 8) DEV ACTUATOR (Expose All Endpoints)
 # ────────────────────────────────────────────────────────────────
 management:
   endpoints:

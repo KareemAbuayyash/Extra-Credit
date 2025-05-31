@@ -23,14 +23,14 @@ spring:
   jpa:
     database-platform: org.hibernate.dialect.PostgreSQLDialect
     hibernate:
-      ddl-auto: update    # will apply any schema changes automatically
+      ddl-auto: update   # Apply schema changes automatically in staging
     show-sql: false
     properties:
       hibernate:
         format_sql: false
 
   # ────────────────────────────────────────────────────────────────
-  # 3) MAIL FOR STAGING
+  # 3) Staging MAIL (can come from env-vars)
   # ────────────────────────────────────────────────────────────────
   mail:
     host: smtp.gmail.com
@@ -71,7 +71,7 @@ logging:
     org.springframework.security: WARN
 
 # ────────────────────────────────────────────────────────────────
-# 7) ACTUATOR – only show health/info/metrics in staging
+# 7) ACTUATOR – Only expose health/info/metrics in staging
 # ────────────────────────────────────────────────────────────────
 management:
   endpoints:
