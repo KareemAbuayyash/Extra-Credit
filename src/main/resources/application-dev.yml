@@ -1,0 +1,66 @@
+spring:
+  application:
+    name: employee-payroll-system-dev
+  
+  # Development Database - H2 In-Memory
+  datasource:
+    url: jdbc:h2:mem:devdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    driver-class-name: org.h2.Driver
+    username: dev_user
+    password: dev_pass
+  
+  # Development JPA Settings
+  jpa:
+    database-platform: org.hibernate.dialect.H2Dialect
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+  
+  # H2 Database Console Access
+  h2:
+    console:
+      enabled: true
+      path: /database-console
+
+  # Development Email Configuration
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: rawang17@gmail.com
+    password: fswc bscf gnyb iewm
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+
+# API Documentation for Development
+springdoc:
+  swagger-ui:
+    enabled: true
+    path: /api-docs-ui
+  api-docs:
+    path: /v3/api-docs
+
+# Development JWT Settings
+auth:
+  jwt:
+    secret-key: development-jwt-secret-key-for-testing-12345
+    token-expiration: 36000000  # 10 hours for convenience
+
+# Development Logging - Verbose
+logging:
+  level:
+    com.example.payroll: DEBUG
+    org.springframework.security: DEBUG
+
+# All Actuator Endpoints for Development
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "*"
