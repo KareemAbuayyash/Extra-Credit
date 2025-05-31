@@ -27,35 +27,28 @@ public class SecurityConfig {
     }
 
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-        http
-        .csrf(csrf -> csrf.disable())
-            .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/auth/**").permitAll()
-                .requestMatchers("/admin/**").hasRole("ADMIN") // Only admins
-                .requestMatchers("/swagger-ui.html").permitAll()
-                .requestMatchers("/api-docs-ui/**").permitAll()
-                .requestMatchers("/api-docs-ui.html").permitAll()
-                .requestMatchers("/employees/**").permitAll()
-                .requestMatchers("/departments/**").permitAll()
-                .requestMatchers("/swagger-ui/**").permitAll()
-                .requestMatchers("/swagger-ui.html").permitAll()
-                .requestMatchers("/v3/api-docs/**").permitAll()
-                .requestMatchers("/v3/api-docs.yaml").permitAll()
-                .requestMatchers("/v3/api-docs/swagger-config").permitAll()
-                .requestMatchers("/swagger-resources/**").permitAll()
-               .requestMatchers("/api-docs/**").permitAll()
-                .requestMatchers("/webjars/**").permitAll()
-                .anyRequest().authenticated()
-            )
-            .sessionManagement(sess -> sess.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-            .authenticationProvider(authenticationProvider());
+public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+    http
+    .csrf(csrf -> csrf.disable())
+        .authorizeHttpRequests(auth -> auth
+            .requestMatchers("/auth/**").permitAll()
+            .requestMatchers("/admin/**").hasRole("ADMIN") // Only admins
+            .requestMatchers("/swagger-ui.html").permitAll()
+           .requestMatchers("/swagger-ui/**").permitAll()
+           .requestMatchers("/api-docs/**").permitAll()
+           // Make all employee endpoints public
+           .requestMatchers("/employees/**").permitAll()
+           // Make all department endpoints public  
+           .requestMatchers("/departments/**").permitAll()
+            .anyRequest().authenticated()
+        )
+        .sessionManagement(sess -> sess.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+        .authenticationProvider(authenticationProvider());
 
-        http.addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+    http.addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
-        return http.build();
-    }
-
+    return http.build();
+}
     @Bean
     public AuthenticationManager authenticationManager() {
         return new ProviderManager(Collections.singletonList(authenticationProvider()));

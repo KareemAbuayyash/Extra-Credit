@@ -1,39 +1,38 @@
-# src/main/resources/application-prod.yml
+# Production Environment - AWS RDS PostgreSQL
 spring:
   application:
-    name: employee-payroll-system-prod
+    name: payroll-prod
   
-  # Production Database Configuration - AWS RDS
-datasource:
-    # Notice the "?sslmode=require" after the port/database
-    url: jdbc:postgresql://${DATABASE_HOST}:5432/${DATABASE_NAME:payroll_prod}?sslmode=require
-    username: ${DATABASE_USER:payroll_user}
-    password: SecurePassword123!
+  # AWS RDS PostgreSQL Database (Production)
+  datasource:
+    url: jdbc:postgresql://${DB_HOST}:5432/${DB_NAME:payroll_prod}
+    username: ${DB_USERNAME:payroll_user}
+    password: ${DB_PASSWORD}
     driver-class-name: org.postgresql.Driver
     hikari:
-      maximum-pool-size: 15
-      minimum-idle: 3
-      connection-timeout: 20000
-      idle-timeout: 600000
+      maximum-pool-size: 10
+      minimum-idle: 2
+      connection-timeout: 30000
+      idle-timeout: 300000
   
-  # Hibernate & JPA Settings
+  # JPA Configuration for PostgreSQL
   jpa:
     database-platform: org.hibernate.dialect.PostgreSQLDialect
     hibernate:
-      ddl-auto: update  # Changed from validate to update for production flexibility
+      ddl-auto: validate  # Don't modify schema in production
     show-sql: false
     properties:
       hibernate:
         format_sql: false
         jdbc:
-          batch_size: 20
+          batch_size: 25
 
-  # SMTP Email Service Configuration
+  # Email Configuration (From environment variables)
   mail:
-    host: ${SMTP_HOST:smtp.gmail.com}
-    port: ${SMTP_PORT:587}
-    username: ${SMTP_USER}
-    password: ${SMTP_PASS}
+    host: ${MAIL_HOST:smtp.gmail.com}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME}
+    password: ${MAIL_PASSWORD}
     properties:
       mail:
         smtp:
@@ -41,49 +40,42 @@ datasource:
           starttls:
             enable: true
 
-# OpenAPI Documentation Settings - ENABLED FOR PRODUCTION
+# API Documentation (Enabled)
 springdoc:
   swagger-ui:
     enabled: true
-    path: /api-docs-ui
-    try-it-out-enabled: true
-    operations-sorter: method
-    tags-sorter: alpha
-    filter: true
-    config-url: /v3/api-docs/swagger-config
-    url: /v3/api-docs
+    path: /swagger-ui.html
   api-docs:
     enabled: true
-    path: /v3/api-docs
+    path: /api-docs
 
-# Authentication & Security Configuration
-auth:
+# JWT Configuration (Short expiration for security)
+security:
   jwt:
-    secret-key: ${JWT_SECRET_KEY}
-    token-expiration: 1800000  # 30 minutes for security
+    secret: ${JWT_SECRET}
+    expiration: 1800000  # 30 minutes
 
-# Production Logging Configuration
+# Minimal logging for production
 logging:
   level:
-    com.example.payroll: INFO
-    org.springframework.security: WARN
-    root: WARN
+    com.example.payroll: WARN
+    org.springframework.security: ERROR
+    root: ERROR
 
-# Health Check & Monitoring - More endpoints for production monitoring
+# Minimal management endpoints
 management:
   endpoints:
     web:
       exposure:
-        include: health,info,metrics
+        include: health,info
   endpoint:
     health:
-      show-details: when-authorized
+      show-details: never
 
-# Server Configuration
+# Production server settings
 server:
-  port: ${APP_PORT:8080}
+  port: ${SERVER_PORT:8080}
   compression:
     enabled: true
   error:
     include-stacktrace: never
-  forward-headers-strategy: framework
