@@ -141,32 +141,12 @@ public ResponseEntity<?> newEmployee(EmployeeDTO newEmployee) {
 
     @Override
 public ResponseEntity<?> deleteByEmail(String email) {
-    Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-    String username = authentication.getName();
-
-    boolean isAnonymous = "anonymousUser".equals(username);
-
-    // Optional: log for debugging
-    log.info("Delete requested by: " + username);
-
-    // Find employee or 404
     Employee employee = repository.findByEmail(email)
-            .orElseThrow(() -> new ResourceNotFoundException("Employee with EMAIL " + email + " not found."));
+        .orElseThrow(() -> new ResourceNotFoundException("Employee with EMAIL " + email + " not found."));
 
-    if (!isAnonymous) {
-        User authenticatedUser = userRepository.findByUsername(username)
-                .orElseThrow(() -> new RuntimeException("User not found"));
-
-        // Authorization check: only admin or owner
-        if (!authenticatedUser.getRole().equals("ROLE_ADMIN") &&
-            !authenticatedUser.getId().equals(employee.getUser().getId())) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("You are not allowed to delete this employee.");
-        }
-    }
-
-    // Perform deletion
     repository.delete(employee);
     return ResponseEntity.noContent().build();
 }
+
 
 }
