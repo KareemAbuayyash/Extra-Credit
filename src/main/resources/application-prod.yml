@@ -72,19 +72,19 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info   # expose only health & info
-  endpoint:
-    health:
-      show-details: never             # never leak internals
-      # ─────────────────────── Disable every failing sub-indicator ──────────────────────
-      db:
-        enabled: false                # disable DataSource check
-      mail:
-        enabled: false                # disable Mail check
-      diskspace:
-        enabled: false                # disable DiskSpace check (if it exists)
-      ping:
-        enabled: false                # disable Ping check (if it exists)
+        include: health,info
+
+  health:
+    show-details: never
+    db:
+      enabled: false
+    mail:
+      enabled: false
+    diskspace:
+      enabled: false
+    ping:
+      enabled: false
+              # disable Ping check (if it exists)
       # ─────────────────────────────────────────────────────────────────────────────────
   
 # ─────────────────────────────────── Server Settings ───────────────────────────────────
