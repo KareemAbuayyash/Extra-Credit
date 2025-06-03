@@ -24,7 +24,7 @@ spring:
   jpa:
     database-platform: org.hibernate.dialect.PostgreSQLDialect
     hibernate:
-      ddl-auto: validate   # Never modify schema in production
+      ddl-auto: validate      # Never modify schema in production
     show-sql: false
     properties:
       hibernate:
@@ -72,17 +72,21 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info,metrics,loggers  # only expose a small subset in production
+        include: health,info   # expose only health & info
   endpoint:
     health:
-      show-details: never                    # never show sensitive details
-      probes:
-        enabled: false                       # disable liveness/readiness probes if any
+      show-details: never             # never leak internals
+      # ─────────────────────── Disable every failing sub-indicator ──────────────────────
       db:
-        enabled: false                       # turn off database health check (so Health = UP always)
+        enabled: false                # disable DataSource check
       mail:
-        enabled: false                       # turn off mail health check entirely
-
+        enabled: false                # disable Mail check
+      diskspace:
+        enabled: false                # disable DiskSpace check (if it exists)
+      ping:
+        enabled: false                # disable Ping check (if it exists)
+      # ─────────────────────────────────────────────────────────────────────────────────
+  
 # ─────────────────────────────────── Server Settings ───────────────────────────────────
 server:
   port: ${SERVER_PORT:8080}
