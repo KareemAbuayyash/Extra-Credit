@@ -16,7 +16,10 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 
 import com.example.payroll.departmentService.Department;
 import com.example.payroll.departmentService.DepartmentRepository;
@@ -50,18 +53,34 @@ public class EmployeeServiceImpl implements EmployeeService {
     }
 
     @Override
-    public ResponseEntity<?> newEmployee(EmployeeDTO newEmployee) {
-        Department dep = departmentRepository.findByName(newEmployee.getDepartmentName())
-                .orElseThrow(() -> new ResourceNotFoundException("Department with Name "+ newEmployee.getDepartmentName() + " not found."));
+public ResponseEntity<?> newEmployee(EmployeeDTO newEmployee) {
+    Department dep = departmentRepository.findByName(newEmployee.getDepartmentName())
+            .orElseThrow(() -> new ResourceNotFoundException("Department with Name "+ newEmployee.getDepartmentName() + " not found."));
 
-        Employee employee = EmployeeMapper.toEntity(newEmployee, dep);
-        employee = repository.save(employee);
-        EntityModel<EmployeeDTO> entityModel = assembler.toModel(EmployeeMapper.toDTO(employee));
+    // ✅ Check if user already exists
+    User user = userRepository.findByUsername(newEmployee.getUsername()).orElse(null);
 
-        return ResponseEntity //
-                .created(entityModel.getRequiredLink(IanaLinkRelations.SELF).toUri()) //
-                .body(entityModel);
+    if (user == null) {
+        user = new User();
+        user.setUsername(newEmployee.getUsername());
+        user.setPassword(new BCryptPasswordEncoder().encode(newEmployee.getPassword()));
+        user.setRole("ROLE_" + newEmployee.getRole()); // e.g., ROLE_ADMIN
+        user = userRepository.save(user);
     }
+
+    // ✅ Now assign the user to the employee
+    Employee employee = EmployeeMapper.toEntity(newEmployee, dep);
+    employee.setUser(user);
+
+    employee = repository.save(employee);
+
+    EntityModel<EmployeeDTO> entityModel = assembler.toModel(EmployeeMapper.toDTO(employee));
+
+    return ResponseEntity
+            .created(entityModel.getRequiredLink(IanaLinkRelations.SELF).toUri())
+            .body(entityModel);
+}
+
 
     @Override
     public ResponseEntity<?> findById(Long id) {
@@ -119,5 +138,35 @@ public class EmployeeServiceImpl implements EmployeeService {
         repository.deleteById(id);
         return ResponseEntity.noContent().build();
     }
+
+    @Override
+public ResponseEntity<?> deleteByEmail(String email) {
+    Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+    String username = authentication.getName();
+
+    boolean isAnonymous = "anonymousUser".equals(username);
+
+    // Optional: log for debugging
+    log.info("Delete requested by: " + username);
+
+    // Find employee or 404
+    Employee employee = repository.findByEmail(email)
+            .orElseThrow(() -> new ResourceNotFoundException("Employee with EMAIL " + email + " not found."));
+
+    if (!isAnonymous) {
+        User authenticatedUser = userRepository.findByUsername(username)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        // Authorization check: only admin or owner
+        if (!authenticatedUser.getRole().equals("ROLE_ADMIN") &&
+            !authenticatedUser.getId().equals(employee.getUser().getId())) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("You are not allowed to delete this employee.");
+        }
+    }
+
+    // Perform deletion
+    repository.delete(employee);
+    return ResponseEntity.noContent().build();
+}
 
 }

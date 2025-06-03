@@ -55,4 +55,10 @@ class EmployeeController {
   ResponseEntity<?> deleteEmployee(@PathVariable Long id) {
     return employeeService.deleteById(id);
   }
+  @DeleteMapping("/employees/email/{email}")
+  ResponseEntity<?> deleteEmployeeByEmail(@PathVariable String email) {
+    return employeeService.deleteByEmail(email);
+  }
+
+  
 }
