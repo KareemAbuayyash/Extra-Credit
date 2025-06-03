@@ -1,8 +1,14 @@
+# src/main/resources/application-prod.yml
+#
+# ─────────────────────────────────────────────────────────────────────────────
+# Production configuration for Employee Payroll System (profile = "prod")
+# ─────────────────────────────────────────────────────────────────────────────
+
 spring:
   application:
     name: payroll-prod
 
-  # PostgreSQL Database
+  # ────────────────────────────── PostgreSQL Database ─────────────────────────────
   datasource:
     url: jdbc:postgresql://kareem-db.chxxo89q9lcl.us-east-1.rds.amazonaws.com:5432/payroll_prod
     driver-class-name: org.postgresql.Driver
@@ -14,7 +20,7 @@ spring:
       connection-timeout: 30000
       idle-timeout: 300000
 
-  # JPA/Hibernate for PostgreSQL
+  # ─────────────────── JPA/Hibernate for PostgreSQL ───────────────────
   jpa:
     database-platform: org.hibernate.dialect.PostgreSQLDialect
     hibernate:
@@ -26,7 +32,7 @@ spring:
         jdbc:
           batch_size: 25
 
-  # Mail (Environment variables)
+  # ────────────────────────────── Mail (env variables) ─────────────────────────────
   mail:
     host: ${MAIL_HOST:smtp.gmail.com}
     port: ${MAIL_PORT:587}
@@ -39,7 +45,7 @@ spring:
           starttls:
             enable: true
 
-# Swagger
+# ────────────────────────────────── Swagger (Prod) ─────────────────────────────────
 springdoc:
   swagger-ui:
     enabled: true
@@ -48,30 +54,36 @@ springdoc:
     enabled: true
     path: /v3/api-docs
 
-# JWT (Production)
+# ──────────────────────────────── JWT (Prod) ────────────────────────────────
 security:
   jwt:
     secret: ${JWT_SECRET}
     expiration: 1800000   # 30 minutes
 
-# Logging (Minimal)
+# ───────────────────────────── Logging (Minimal) ─────────────────────────────
 logging:
   level:
     com.example.payroll: WARN
     org.springframework.security: ERROR
     root: ERROR
 
-# Actuator (Minimal)
+# ─────────────────────────────────── Actuator (Prod) ───────────────────────────────────
 management:
   endpoints:
     web:
       exposure:
-        include: health,info
+        include: health,info,metrics,loggers  # only expose a small subset in production
   endpoint:
     health:
-      show-details: never
+      show-details: never                    # never show sensitive details
+      probes:
+        enabled: false                       # disable liveness/readiness probes if any
+      db:
+        enabled: false                       # turn off database health check (so Health = UP always)
+      mail:
+        enabled: false                       # turn off mail health check entirely
 
-# Server
+# ─────────────────────────────────── Server Settings ───────────────────────────────────
 server:
   port: ${SERVER_PORT:8080}
   compression:
