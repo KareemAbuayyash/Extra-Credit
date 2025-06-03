@@ -2,7 +2,7 @@ spring:
   application:
     name: employee-payroll-system-dev
 
-  # H2 Database (In-Memory)
+  # H2 (In-Memory) Config
   datasource:
     url: jdbc:h2:mem:devdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
     driver-class-name: org.h2.Driver
@@ -12,7 +12,6 @@ spring:
       maximum-pool-size: 5
       minimum-idle: 1
 
-  # JPA/Hibernate for H2
   jpa:
     database-platform: org.hibernate.dialect.H2Dialect
     hibernate:
@@ -22,13 +21,11 @@ spring:
       hibernate:
         format_sql: true
 
-  # H2 Console
   h2:
     console:
       enabled: true
       path: /database-console
 
-  # Mail
   mail:
     host: smtp.gmail.com
     port: 587
@@ -47,16 +44,20 @@ auth:
     secret-key: development-jwt-secret-key-for-testing-12345
     token-expiration: 36000000   # 10 hours
 
-# Logging (Verbose)
+# Logging
 logging:
   level:
     com.example.payroll: DEBUG
     org.springframework.security: DEBUG
 
-# Actuator (All endpoints)
+# **Actuator (All endpoints exposed in DEV)**
 management:
   endpoints:
     web:
       exposure:
         include: "*"
 
+  # Disable the “mail” HealthIndicator entirely
+  health:
+    mail:
+      enabled: false
